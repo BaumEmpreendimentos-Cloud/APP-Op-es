@@ -45,7 +45,7 @@
       "unrealizedPnL": 870,
       "targetProfit": 1150,
       "stopLoss": -1500,
-      "lastUpdated": "2026-09-22T20:03:17.949Z",
+      "lastUpdated": "2026-09-22T20:21:11.965Z",
       "legs": [
         {
           "id": "l1",
@@ -141,6 +141,34 @@
         },
         {
           "date": "17:03",
+          "spotPrice": 48.2,
+          "strategyValue": 870,
+          "unrealizedPnL": 870,
+          "roiPercent": 2.4
+        },
+        {
+          "date": "17:08",
+          "spotPrice": 48.2,
+          "strategyValue": 870,
+          "unrealizedPnL": 870,
+          "roiPercent": 2.4
+        },
+        {
+          "date": "17:08",
+          "spotPrice": 48.2,
+          "strategyValue": 870,
+          "unrealizedPnL": 870,
+          "roiPercent": 2.4
+        },
+        {
+          "date": "17:21",
+          "spotPrice": 48.2,
+          "strategyValue": 870,
+          "unrealizedPnL": 870,
+          "roiPercent": 2.4
+        },
+        {
+          "date": "17:21",
           "spotPrice": 48.2,
           "strategyValue": 870,
           "unrealizedPnL": 870,
