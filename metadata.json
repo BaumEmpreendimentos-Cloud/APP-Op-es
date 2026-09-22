@@ -1,0 +1,6 @@
+{
+  "name": "Opções B3 - Analisador & Academy",
+  "description": "Plataforma profissional de análise de opções de ações do Ibovespa (B3), simulação de estratégias, cálculo de margem, rolagem e base de conhecimento avançada.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

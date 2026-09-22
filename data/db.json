@@ -1,0 +1,198 @@
+{
+  "users": [
+    {
+      "id": "user-trader-1",
+      "name": "Carlos Silva (Trader B3)",
+      "email": "trader1@b3.com.br",
+      "passwordHash": "e411376f1673b75781c412db74419379270c97e018698ef9966d78bccd38b78bdff5a190a48c5e86b38a79ab26c910ba308908df2b7d8f9169a2ff30d0433f1c",
+      "salt": "195fe8bfc6f61707104a9454d6868b24",
+      "createdAt": "2026-09-22T19:25:20.350Z"
+    },
+    {
+      "id": "user-trader-2",
+      "name": "Mariana Costa (Opções Pro)",
+      "email": "trader2@b3.com.br",
+      "passwordHash": "b4c70a686cf7d2071c6b37afbda831c9e72161b2dc5818b866dac2b6f9d9e7501b301e6b02f715576d580b515c23f7dbeb3e4874660536b4ef57f6578db4480d",
+      "salt": "e4aac169a43fae1a977014c9da70b344",
+      "createdAt": "2026-09-22T19:25:20.357Z"
+    },
+    {
+      "id": "user-1790106473828-k23nj0",
+      "name": "Trader Google",
+      "email": "trader.google@gmail.com",
+      "passwordHash": "8dfe1a72fcfbddc12be209588102f381dbbd02325cbee2c71022387b157111500115940496db0087ed67b29d9d4b80cef7d9b2703641688702479420c355a64d",
+      "salt": "16bb2f4d1200592a2e264bb0c677d761",
+      "createdAt": "2026-09-22T19:47:53.828Z"
+    },
+    {
+      "id": "user-1790106478248-pcmdrt",
+      "name": "Operador iCloud",
+      "email": "operador.icloud@icloud.com",
+      "passwordHash": "9c18e929cf31743c553b965fbd54b53bd77d11090f0535fd79f2846828cf9ed501143dfe1a12b0f0ddf9dacb508251d46e58cb43339a562fbfb1daadb23ccb64",
+      "salt": "0a377477e6f8fa4eabc1affe403fce97",
+      "createdAt": "2026-09-22T19:47:58.248Z"
+    }
+  ],
+  "strategies": [
+    {
+      "id": "pos-user1-petr4",
+      "userId": "user-trader-1",
+      "name": "Venda Coberta Mensal PETR4",
+      "ticker": "PETR4",
+      "spotPriceAtEntry": 37.8,
+      "initialNetCashflow": -36650,
+      "currentNetValue": 37520,
+      "unrealizedPnL": 870,
+      "targetProfit": 1150,
+      "stopLoss": -1500,
+      "lastUpdated": "2026-09-22T19:45:38.949Z",
+      "legs": [
+        {
+          "id": "l1",
+          "type": "STOCK",
+          "side": "BUY",
+          "strike": 37.8,
+          "premium": 37.8,
+          "currentPrice": 48.2,
+          "quantity": 1000,
+          "daysToExpiry": 0,
+          "ticker": "PETR4",
+          "exerciseStyle": "AMERICAN"
+        },
+        {
+          "id": "l2",
+          "type": "CALL",
+          "side": "SELL",
+          "strike": 39,
+          "premium": 1.15,
+          "currentPrice": 10.68,
+          "quantity": 1000,
+          "daysToExpiry": 14,
+          "ticker": "PETRJ390",
+          "exerciseStyle": "AMERICAN"
+        }
+      ],
+      "createdAt": "2026-09-14T19:25:20.357Z",
+      "status": "OPEN",
+      "notes": "Lançamento coberto para capturar taxa com objetivo de exercício ou rolagem em caso de alta moderada.",
+      "history": [
+        {
+          "date": "Dia 0 (Entrada)",
+          "spotPrice": 37.8,
+          "strategyValue": -36650,
+          "unrealizedPnL": 0,
+          "roiPercent": 0
+        },
+        {
+          "date": "Dia 3",
+          "spotPrice": 37.6,
+          "strategyValue": -36500,
+          "unrealizedPnL": 150,
+          "roiPercent": 0.41
+        },
+        {
+          "date": "Dia 5",
+          "spotPrice": 37.95,
+          "strategyValue": -36320,
+          "unrealizedPnL": 330,
+          "roiPercent": 0.9
+        },
+        {
+          "date": "Hoje (Atual)",
+          "spotPrice": 38.1,
+          "strategyValue": -36100,
+          "unrealizedPnL": 550,
+          "roiPercent": 1.5
+        },
+        {
+          "date": "16:45",
+          "spotPrice": 48.2,
+          "strategyValue": 870,
+          "unrealizedPnL": 870,
+          "roiPercent": 2.4
+        },
+        {
+          "date": "16:45",
+          "spotPrice": 48.2,
+          "strategyValue": 870,
+          "unrealizedPnL": 870,
+          "roiPercent": 2.4
+        }
+      ]
+    },
+    {
+      "id": "pos-user2-vale3",
+      "userId": "user-trader-2",
+      "name": "Trava de Alta com CALL em VALE3",
+      "ticker": "VALE3",
+      "spotPriceAtEntry": 61.5,
+      "initialNetCashflow": -675,
+      "currentNetValue": -325,
+      "unrealizedPnL": 350,
+      "targetProfit": 1325,
+      "stopLoss": -400,
+      "lastUpdated": "2026-09-22T19:25:20.357Z",
+      "legs": [
+        {
+          "id": "l3",
+          "type": "CALL",
+          "side": "BUY",
+          "strike": 62,
+          "premium": 2.1,
+          "currentPrice": 2.45,
+          "quantity": 500,
+          "daysToExpiry": 12,
+          "ticker": "VALEJ620",
+          "exerciseStyle": "AMERICAN"
+        },
+        {
+          "id": "l4",
+          "type": "CALL",
+          "side": "SELL",
+          "strike": 66,
+          "premium": 0.75,
+          "currentPrice": 0.7,
+          "quantity": 500,
+          "daysToExpiry": 12,
+          "ticker": "VALEJ660",
+          "exerciseStyle": "AMERICAN"
+        }
+      ],
+      "createdAt": "2026-09-12T19:25:20.357Z",
+      "status": "OPEN",
+      "notes": "Tese de recuperação de curto prazo na Vale com risco travado na diferença dos prêmios.",
+      "history": [
+        {
+          "date": "Dia 0 (Entrada)",
+          "spotPrice": 61.5,
+          "strategyValue": -675,
+          "unrealizedPnL": 0,
+          "roiPercent": 0
+        },
+        {
+          "date": "Dia 4",
+          "spotPrice": 60.8,
+          "strategyValue": -750,
+          "unrealizedPnL": -75,
+          "roiPercent": -11.1
+        },
+        {
+          "date": "Hoje (Atual)",
+          "spotPrice": 62.4,
+          "strategyValue": -325,
+          "unrealizedPnL": 350,
+          "roiPercent": 51.8
+        }
+      ]
+    }
+  ],
+  "tokens": {
+    "b3_user-trader-1_29ad93f269d75bc811f68657d7d4f1c209326084f7c71ec4": "user-trader-1",
+    "b3_user-trader-1_69ae45d24005cf35aa9f71930831383fab2cca59f22b6c72": "user-trader-1",
+    "b3_user-trader-1_afd4bb0e6e332f3826d826377e84f8140979f6191de4641e": "user-trader-1",
+    "b3_user-trader-1_4d0d6f74c0c4a41ef3be6d4cffa299efbbf77838e631368e": "user-trader-1",
+    "b3_user-trader-2_fa98f3716664dae9b38cd3786d09cc53e53fd4cb575517c5": "user-trader-2",
+    "b3_user-1790106473828-k23nj0_bdf52b311743840f8e76ba8659301fbc605bec49fe43126f": "user-1790106473828-k23nj0",
+    "b3_user-1790106478248-pcmdrt_65c39562bf7c0540b38c721272ae54af1104b0da9c7bf5fb": "user-1790106478248-pcmdrt"
+  }
+}
