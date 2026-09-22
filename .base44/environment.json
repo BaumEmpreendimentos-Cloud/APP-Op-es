@@ -1,0 +1,18 @@
+{
+  "previewPort": 3000,
+  "healthPath": "/api/health",
+  "startCommand": "docker compose -f docker-compose.base44.yml up -d",
+  "secrets": [
+    {
+      "name": "GEMINI_API_KEY",
+      "description": "Google Gemini API key for AI scenario analysis. Obtain from Google AI Studio (https://aistudio.google.com/apikey). Optional — app falls back to a deterministic analysis engine without it.",
+      "requiredAtBoot": false,
+      "generatedForDevelopment": true
+    },
+    {
+      "name": "OPLAB_ACCESS_TOKEN",
+      "description": "OpLab REST API v3 access token for live B3 market data. Obtain from https://go.oplab.com.br/api. Optional — app falls back to a B3 ticker parser/estimator without it.",
+      "requiredAtBoot": false
+    }
+  ]
+}
