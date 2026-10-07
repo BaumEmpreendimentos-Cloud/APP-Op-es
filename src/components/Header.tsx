@@ -16,11 +16,12 @@ import {
   Sparkles,
   User,
   Shield,
+  Activity,
 } from 'lucide-react';
 
 interface HeaderProps {
-  activeTab: 'simulator' | 'catalog' | 'scenarios' | 'roll' | 'academy';
-  setActiveTab: (tab: 'simulator' | 'catalog' | 'scenarios' | 'roll' | 'academy') => void;
+  activeTab: 'simulator' | 'catalog' | 'scenarios' | 'roll' | 'academy' | 'vix';
+  setActiveTab: (tab: 'simulator' | 'catalog' | 'scenarios' | 'roll' | 'academy' | 'vix') => void;
   selectedTicker: string;
   setSelectedTicker: (ticker: string) => void;
   spotPrice: number;
@@ -105,52 +106,55 @@ export const Header: React.FC<HeaderProps> = ({
       {/* Top Brand & Quick Market Status */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex flex-col lg:flex-row items-center justify-between py-3 gap-3">
-          {/* Logo & Platform Title */}
-          <div className="flex items-center gap-3 w-full lg:w-auto justify-between lg:justify-start">
+          {/* Logo & Platform Title + Mobile Quick Right Controls */}
+          <div className="flex items-center justify-between w-full lg:w-auto">
             <div className="flex items-center gap-2.5">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-600 via-teal-500 to-sky-500 flex items-center justify-center shadow-lg shadow-emerald-500/20 text-white font-black text-xl">
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-tr from-emerald-600 via-teal-500 to-sky-500 flex items-center justify-center shadow-lg shadow-emerald-500/20 text-white font-black text-lg sm:text-xl">
                 θ
               </div>
               <div>
-                <div className="flex items-center gap-2">
-                  <h1 className="text-base sm:text-lg font-black tracking-tight text-white flex items-center gap-1.5">
+                <div className="flex items-center gap-1.5 sm:gap-2">
+                  <h1 className="text-sm sm:text-lg font-black tracking-tight text-white flex items-center gap-1">
                     OPÇÕES <span className="text-emerald-400">B3</span>
                   </h1>
-                  <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 uppercase tracking-wider flex items-center gap-1">
+                  <span className="px-1.5 sm:px-2 py-0.5 text-[9px] sm:text-[10px] font-bold rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 uppercase tracking-wider flex items-center gap-1">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                    Mercado B3
+                    B3
                   </span>
                 </div>
               </div>
             </div>
 
-            {/* Quick Live Quote Badge on Mobile */}
-            {liveQuoteData && (
-              <div className="flex items-center gap-1.5 lg:hidden">
-                <span className="text-xs font-mono font-bold text-white">
-                  R$ {spotPrice.toFixed(2)}
-                </span>
-                {liveQuoteData.variation !== undefined && (
-                  <span
-                    className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded ${
-                      liveQuoteData.variation >= 0
-                        ? 'bg-emerald-500/20 text-emerald-400'
-                        : 'bg-rose-500/20 text-rose-400'
-                    }`}
-                  >
-                    {liveQuoteData.variation >= 0 ? '+' : ''}
-                    {liveQuoteData.variation.toFixed(2)}%
-                  </span>
-                )}
-              </div>
-            )}
+            {/* Mobile Top-Right Actions: VIX Pill + Account Button (visible on mobile only) */}
+            <div className="flex items-center gap-1.5 lg:hidden">
+              <button
+                onClick={() => setActiveTab('vix')}
+                title="Abrir S&P/B3 IBOVESPA VIX (32.77 pts)"
+                className="flex items-center gap-1 bg-slate-900 border border-rose-500/50 rounded-xl px-2 py-1 text-xs transition cursor-pointer"
+              >
+                <Activity className="w-3.5 h-3.5 text-rose-400 animate-pulse" />
+                <span className="text-[10px] text-slate-400">VIX:</span>
+                <strong className="text-rose-400 font-mono text-xs font-bold">32.77</strong>
+              </button>
+
+              <button
+                id="header-mobile-auth-btn"
+                onClick={onOpenAuthModal}
+                className="flex items-center gap-1 bg-slate-900 border border-slate-700/80 rounded-xl p-1.5 text-xs text-white transition cursor-pointer"
+                title="Acessar conta ou fazer login"
+              >
+                <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-emerald-600 to-teal-400 flex items-center justify-center text-slate-950 font-black text-[11px] shadow">
+                  {user ? user.name.charAt(0).toUpperCase() : <User className="w-3.5 h-3.5 text-slate-950" />}
+                </div>
+              </button>
+            </div>
           </div>
 
           {/* Asset & Parameters Bar */}
-          <div className="flex flex-wrap items-center gap-2.5 w-full lg:w-auto justify-start lg:justify-end">
+          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2.5 w-full lg:w-auto justify-start lg:justify-end">
             {/* Ticker Selector */}
-            <div className="flex items-center gap-1.5 bg-slate-900 border border-slate-800 rounded-xl p-1 text-xs shadow-inner">
-              <span className="text-slate-400 font-semibold px-2">Ativo:</span>
+            <div className="flex items-center gap-1 bg-slate-900 border border-slate-800 rounded-xl p-1 text-xs shadow-inner">
+              <span className="text-slate-400 font-semibold px-1.5 sm:px-2 text-[11px] sm:text-xs">Ativo:</span>
               {!showCustomInput ? (
                 <div className="flex items-center gap-1">
                   <select
@@ -158,7 +162,7 @@ export const Header: React.FC<HeaderProps> = ({
                     aria-label="Selecionar Ativo da B3"
                     value={selectedTicker}
                     onChange={(e) => handleTickerSelect(e.target.value)}
-                    className="bg-slate-950 text-white font-bold font-mono px-2.5 py-1.5 rounded-lg border border-slate-700/80 focus:outline-none focus:border-emerald-500 cursor-pointer"
+                    className="bg-slate-950 text-white font-bold font-mono px-2 py-1.5 rounded-lg border border-slate-700/80 focus:outline-none focus:border-emerald-500 cursor-pointer text-xs sm:text-xs min-h-[34px]"
                   >
                     {IBOVESPA_ASSETS.map((a) => (
                       <option key={a.ticker} value={a.ticker}>
@@ -176,19 +180,19 @@ export const Header: React.FC<HeaderProps> = ({
                     placeholder="Ex: B3SA3"
                     value={customTickerInput}
                     onChange={(e) => setCustomTickerInput(e.target.value.toUpperCase())}
-                    className="w-24 bg-slate-950 text-emerald-400 font-mono font-bold px-2 py-1 rounded-lg border border-emerald-500 text-xs focus:outline-none uppercase"
+                    className="w-20 sm:w-24 bg-slate-950 text-emerald-400 font-mono font-bold px-2 py-1.5 rounded-lg border border-emerald-500 text-xs focus:outline-none uppercase min-h-[34px]"
                     autoFocus
                   />
                   <button
                     type="submit"
-                    className="px-2 py-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg text-xs"
+                    className="px-2 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg text-xs min-h-[34px]"
                   >
                     OK
                   </button>
                   <button
                     type="button"
                     onClick={() => setShowCustomInput(false)}
-                    className="px-1.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-400 text-xs rounded-lg"
+                    className="px-1.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-400 text-xs rounded-lg min-h-[34px]"
                   >
                     ✕
                   </button>
@@ -199,7 +203,7 @@ export const Header: React.FC<HeaderProps> = ({
             {/* Market Variation & Status Tag */}
             {liveQuoteData && (
               <div
-                className="hidden sm:flex items-center gap-1.5 bg-slate-900 border border-slate-800 rounded-xl px-2.5 py-1.5 text-xs shadow-inner"
+                className="flex items-center gap-1 bg-slate-900 border border-slate-800 rounded-xl px-2 py-1 text-xs shadow-inner"
                 title={`Última cotação de mercado recebida às ${formattedTime || 'agora'}`}
               >
                 <span className="flex items-center gap-1 text-[11px] font-semibold text-slate-300">
@@ -208,7 +212,7 @@ export const Header: React.FC<HeaderProps> = ({
                       isFetchingQuote ? 'bg-amber-400 animate-ping' : 'bg-emerald-400 animate-pulse'
                     }`}
                   />
-                  <span className="text-slate-400 font-mono text-[10px]">Mercado</span>
+                  <span className="text-slate-400 font-mono text-[10px] hidden sm:inline">Mercado</span>
                 </span>
                 {liveQuoteData.variation !== undefined && (
                   <span
@@ -231,9 +235,9 @@ export const Header: React.FC<HeaderProps> = ({
             )}
 
             {/* Spot Price Input with Real-time Refresh Button */}
-            <div className="flex items-center gap-1.5 bg-slate-900 border border-slate-800 rounded-xl px-2.5 py-1 text-xs shadow-inner">
-              <span className="text-slate-400 font-semibold">Spot:</span>
-              <span className="text-slate-500 font-mono">R$</span>
+            <div className="flex items-center gap-1 bg-slate-900 border border-slate-800 rounded-xl px-2 py-1 text-xs shadow-inner">
+              <span className="text-slate-400 font-semibold text-[11px]">Spot:</span>
+              <span className="text-slate-500 font-mono text-[11px]">R$</span>
               <input
                 id="header-spot-price-input"
                 aria-label="Preço Spot do Ativo"
@@ -241,7 +245,7 @@ export const Header: React.FC<HeaderProps> = ({
                 step="0.05"
                 value={spotPrice}
                 onChange={(e) => setSpotPrice(Math.max(0.1, parseFloat(e.target.value) || 0))}
-                className="w-20 bg-slate-950 text-emerald-400 font-mono font-bold px-1.5 py-1 rounded border border-slate-700/80 focus:outline-none focus:border-emerald-500 text-center"
+                className="w-16 sm:w-20 bg-slate-950 text-emerald-400 font-mono font-bold px-1 py-1 rounded border border-slate-700/80 focus:outline-none focus:border-emerald-500 text-center text-xs"
               />
 
               {/* Botão de Atualização Instantânea */}
@@ -250,7 +254,7 @@ export const Header: React.FC<HeaderProps> = ({
                 onClick={onRefreshQuote}
                 disabled={isFetchingQuote}
                 title="Buscar cotação em tempo real deste ativo"
-                className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-600/20 hover:bg-emerald-600 text-emerald-400 hover:text-white border border-emerald-500/30 transition text-xs font-semibold cursor-pointer disabled:opacity-50"
+                className="flex items-center justify-center p-1.5 sm:px-2.5 sm:py-1 rounded-lg bg-emerald-600/20 hover:bg-emerald-600 text-emerald-400 hover:text-white border border-emerald-500/30 transition text-xs font-semibold cursor-pointer disabled:opacity-50"
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${isFetchingQuote ? 'animate-spin text-amber-400' : ''}`} />
                 <span className="hidden xl:inline text-[11px]">
@@ -265,15 +269,15 @@ export const Header: React.FC<HeaderProps> = ({
                 id="header-restore-market-price-btn"
                 onClick={() => setSpotPrice(liveQuoteData!.close)}
                 title="Restaurar simulação para a cotação oficial do mercado"
-                className="flex items-center gap-1 px-2 py-1 rounded-lg bg-amber-500/15 text-amber-400 hover:bg-amber-500/25 border border-amber-500/30 text-[11px] font-mono font-semibold transition cursor-pointer"
+                className="flex items-center gap-1 px-2 py-1 rounded-lg bg-amber-500/15 text-amber-400 hover:bg-amber-500/25 border border-amber-500/30 text-[10px] sm:text-[11px] font-mono font-semibold transition cursor-pointer"
               >
-                <span>Usar Mercado: R$ {liveQuoteData!.close.toFixed(2)}</span>
+                <span>Mercado: R$ {liveQuoteData!.close.toFixed(2)}</span>
               </button>
             )}
 
             {/* Implied Volatility (IV) */}
-            <div className="flex items-center gap-1 bg-slate-900 border border-slate-800 rounded-xl px-2.5 py-1 text-xs shadow-inner">
-              <span className="text-slate-400">IV:</span>
+            <div className="flex items-center gap-1 bg-slate-900 border border-slate-800 rounded-xl px-2 py-1 text-xs shadow-inner">
+              <span className="text-slate-400 text-[11px]">IV:</span>
               <input
                 id="header-iv-input"
                 aria-label="Volatilidade Implícita (IV)"
@@ -283,9 +287,9 @@ export const Header: React.FC<HeaderProps> = ({
                 max="200"
                 value={Math.round(iv * 100)}
                 onChange={(e) => setIv((parseFloat(e.target.value) || 28) / 100)}
-                className="w-14 bg-slate-950 text-amber-400 font-mono font-bold px-1.5 py-1 rounded border border-slate-700/80 focus:outline-none focus:border-amber-500 text-center"
+                className="w-12 sm:w-14 bg-slate-950 text-amber-400 font-mono font-bold px-1 py-1 rounded border border-slate-700/80 focus:outline-none focus:border-amber-500 text-center text-xs"
               />
-              <span className="text-slate-400 font-mono">%</span>
+              <span className="text-slate-400 font-mono text-[11px]">%</span>
             </div>
 
             {/* Selic Rate Input */}
@@ -305,11 +309,23 @@ export const Header: React.FC<HeaderProps> = ({
               <span className="text-slate-400 font-mono">%</span>
             </div>
 
-            {/* Account Button */}
+            {/* Quick S&P/B3 VIX Mini Pill Widget (Desktop only) */}
+            <button
+              onClick={() => setActiveTab('vix')}
+              title="Abrir análise detalhada do S&P/B3 IBOVESPA VIX (Índice de Volatilidade Oficial da B3 - Recorde em 32.77 pts)"
+              className="hidden lg:flex items-center gap-1.5 bg-slate-900 hover:bg-slate-800 border border-rose-500/50 hover:border-rose-400 rounded-xl px-2.5 py-1 text-xs transition cursor-pointer shadow-inner shadow-rose-950/20"
+            >
+              <Activity className="w-3.5 h-3.5 text-rose-400 animate-pulse" />
+              <span className="text-slate-400 text-[11px]">VIX B3:</span>
+              <strong className="text-rose-400 font-mono font-bold">32.77</strong>
+              <span className="text-[10px] text-rose-400 font-mono font-semibold">(+1.2%)</span>
+            </button>
+
+            {/* Account Button (Desktop only) */}
             <button
               id="header-auth-btn"
               onClick={onOpenAuthModal}
-              className="flex items-center gap-2 bg-slate-900 hover:bg-slate-800 border border-slate-700/80 hover:border-emerald-500/60 rounded-xl px-2.5 py-1.5 text-xs text-white transition cursor-pointer shadow-inner ml-1"
+              className="hidden lg:flex items-center gap-2 bg-slate-900 hover:bg-slate-800 border border-slate-700/80 hover:border-emerald-500/60 rounded-xl px-2.5 py-1.5 text-xs text-white transition cursor-pointer shadow-inner ml-1"
               title="Acessar conta ou fazer login"
             >
               <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-emerald-600 to-teal-400 flex items-center justify-center text-slate-950 font-black text-[11px] shadow">
@@ -378,8 +394,11 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         )}
 
-        {/* Navigation Tabs Bar */}
-        <nav className="flex items-center gap-1 sm:gap-2 overflow-x-auto py-2 border-t border-slate-800/60 no-scrollbar">
+        {/* Navigation Tabs Bar (Desktop md+; Mobile is driven by MobileBottomNav) */}
+        <nav
+          aria-label="Navegação Principal Desktop"
+          className="hidden md:flex items-center gap-1 sm:gap-2 overflow-x-auto py-2 border-t border-slate-800/60 no-scrollbar"
+        >
           {/* 1. Acompanhamento & Rolagem */}
           <button
             id="tab-btn-roll"
@@ -436,7 +455,30 @@ export const Header: React.FC<HeaderProps> = ({
             <span>Catálogo de Estratégias (28+)</span>
           </button>
 
-          {/* 5. Opções ACADEMY */}
+          {/* 5. S&P/B3 IBOVESPA VIX */}
+          <button
+            id="tab-btn-vix"
+            onClick={() => setActiveTab('vix')}
+            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all whitespace-nowrap cursor-pointer ${
+              activeTab === 'vix'
+                ? 'bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/25 font-bold'
+                : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
+            }`}
+          >
+            <Activity className="w-4 h-4 text-emerald-400" />
+            <span>S&P/B3 VIX</span>
+            <span
+              className={`text-[10px] font-black px-1.5 py-0.5 rounded-full border ${
+                activeTab === 'vix'
+                  ? 'bg-slate-950 text-emerald-400 border-slate-900'
+                  : 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
+              }`}
+            >
+              OFICIAL
+            </span>
+          </button>
+
+          {/* 6. Opções ACADEMY */}
           <button
             id="tab-btn-academy"
             onClick={() => setActiveTab('academy')}

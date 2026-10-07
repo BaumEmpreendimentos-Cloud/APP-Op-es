@@ -339,11 +339,11 @@ export const Academy: React.FC = () => {
 
       {/* Reader Modal for Detailed Article View */}
       {activeArticle && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 overflow-y-auto">
-          <div className="bg-slate-900 border border-slate-700 rounded-2xl p-6 sm:p-8 max-w-3xl w-full space-y-5 shadow-2xl relative my-8">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-2.5 sm:p-4 overflow-y-auto">
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl p-4 sm:p-8 max-w-3xl w-full space-y-4 sm:space-y-5 shadow-2xl relative my-4 sm:my-8 max-h-[92vh] flex flex-col">
             <button
               onClick={() => setActiveArticle(null)}
-              className="absolute top-4 right-4 p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer"
+              className="absolute top-3 sm:top-4 right-3 sm:right-4 p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>

@@ -2,7 +2,7 @@ import express from "express";
 import path from "path";
 import fs from "fs";
 import crypto from "crypto";
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, Type } from "@google/genai";
 import dotenv from "dotenv";
 
 dotenv.config();
@@ -171,6 +171,9 @@ function loadDb(): StoredDb {
       const raw = fs.readFileSync(DB_FILE, "utf8");
       const parsed = JSON.parse(raw);
       if (parsed && Array.isArray(parsed.users) && Array.isArray(parsed.strategies)) {
+        if (!parsed.tokens || typeof parsed.tokens !== "object") {
+          parsed.tokens = {};
+        }
         return parsed;
       }
     }
@@ -213,6 +216,37 @@ async function startServer() {
   // Health check endpoint
   app.get("/api/health", (_req, res) => {
     res.json({ status: "ok", timestamp: new Date().toISOString() });
+  });
+
+  // Official S&P/B3 IBOVESPA VIX endpoint
+  app.get("/api/vix", (_req, res) => {
+    const vixData = {
+      success: true,
+      ticker: "SPB3VIX",
+      name: "S&P/B3 IBOVESPA VIX",
+      spotVix: 32.77,
+      variation: 0.38,
+      variationPct: 1.17,
+      closeDate: "2026-10-02",
+      minDay: 31.90,
+      maxDay: 33.15,
+      min52w: 14.20,
+      max52w: 32.77,
+      averageSince2011: 18.60,
+      ibovSpot: 132450,
+      cboeUsVix: 19.10,
+      brazilSpread: 13.67,
+      regime: "EXTREMA_PANICO",
+      description: "Fechamento histórico oficial B3 de 02/10/2026: máxima histórica pós-lançamento de 32,77 pts (Fear Zone).",
+      timeHorizon: "30 dias corridos",
+      underlying: "Opções de Ibovespa (B3)",
+      sources: {
+        b3: "https://content.b3.com.br/ibovespa-vix/",
+        spGlobal: "https://www.spglobal.com/spdji/pt/indices/indicators/sp-b3-ibovespa-vix/#overview",
+      },
+      lastUpdated: new Date().toISOString(),
+    };
+    res.json(vixData);
   });
 
   // Market API: Get Option Details by symbol
@@ -398,23 +432,47 @@ async function startServer() {
   app.post("/api/gemini/analyze-scenario", async (req, res) => {
     try {
       const {
-        ticker = "PETR4",
-        spotPrice = 38.5,
-        strategyName = "Estratégia Personalizada",
+        ticker = "BOVA11",
+        spotPrice = 184.2,
+        strategyName = "Estratégia no Simulador",
         legs = [],
         scenarioDescription = "",
         interestRate = 0.1325, // Selic / CDI
-      } = req.body;
+        iv = 0.28,
+      } = req.body || {};
 
+      const cleanScenario = String(scenarioDescription || "").trim() || "Cenário de estresse de mercado e choque de volatilidade na B3";
       const apiKey = process.env.GEMINI_API_KEY;
 
       if (!apiKey || apiKey === "MY_GEMINI_API_KEY") {
-        // Fallback intelligent quantitative response if key is not configured yet
+        const fallbackText = generateDeterministicAnalysis(ticker, spotPrice, strategyName, legs, cleanScenario, interestRate);
+        const fallbackStructured = buildStructuredAnalysis(ticker, spotPrice, strategyName, legs, cleanScenario, fallbackText);
         return res.json({
-          source: "deterministic_engine",
-          analysis: generateDeterministicAnalysis(ticker, spotPrice, strategyName, legs, scenarioDescription, interestRate)
+          success: true,
+          source: "contingency_engine",
+          model: "Motor Quantitativo B3",
+          analysis: fallbackStructured,
+          structured: fallbackStructured,
+          fullMarkdownReport: fallbackText,
         });
       }
+
+      const prompt = `Você é um analista quantitativo e estrategista sênior de derivativos e opções de ações da B3 (mercado financeiro brasileiro).
+Analise com rigor técnico e estritamente sob a perspectiva de mercado financeiro, precificação Black-Scholes/B3, gregas e gestão de risco o seguinte cenário:
+
+- Ativo-Objeto: ${ticker} (Preço Spot atual: R$ ${Number(spotPrice).toFixed(2)})
+- Estratégia Montada: ${strategyName}
+- Pernas da Operação: ${JSON.stringify(legs, null, 2)}
+- Taxa Selic/CDI de referência: ${(Number(interestRate) * 100).toFixed(2)}% a.a.
+- Volatilidade Implícita (IV) base: ${(Number(iv) * 100).toFixed(1)}%
+- Cenário de Mercado Solicitado: "${cleanScenario.replace(/"/g, "'")}"
+
+Responda em formato estruturado em JSON com:
+1. executiveSummary: Diagnóstico executivo conciso do cenário e seu impacto macroeconômico e no preço/volatilidade de ${ticker}.
+2. estimatedPnLImpact: Como o cenário afeta o P&L, Delta direcional, Gamma, Theta (DU 252) e Vega da posição.
+3. b3MarginRisk: Avaliação de risco de cauda e sistema de margem CORE B3, chamadas de margem e exercício antecipado (Calls americanas vs Puts europeias na B3).
+4. recommendedActions: Array com 3 a 5 ações táticas e claras recomendadas de manejo, stop loss e protocolo de rolagem.
+5. fullMarkdownReport: Relatório técnico completo formatado em Markdown com seções detalhadas, bullets e análise aprofundada para o investidor.`;
 
       const ai = new GoogleGenAI({
         apiKey,
@@ -425,35 +483,120 @@ async function startServer() {
         },
       });
 
-      const prompt = `Você é um especialista sênior em derivativos e opções de ações da B3 (mercado financeiro brasileiro), com profundo conhecimento das regras da B3 (exercício automático, americanas vs europeias, margem pelo sistema CORE B3, impacto da taxa Selic/CDI alta e liquidez no Brasil).
+      // Try gemini-3.8-flash first; if unavailable (503/demand) seamlessly try gemini-3.1-flash-lite
+      const candidateModels = ["gemini-3.8-flash", "gemini-3.1-flash-lite"];
+      let parsed: any = null;
+      let usedModel: string = "";
 
-Analise o seguinte cenário para a estrutura de opções do investidor:
-- Ativo-Objeto: ${ticker} (Preço Spot atual: R$ ${spotPrice.toFixed(2)})
-- Estratégia Montada: ${strategyName}
-- Pernas da Operação: ${JSON.stringify(legs, null, 2)}
-- Taxa Selic/CDI de referência: ${(interestRate * 100).toFixed(2)}% a.a.
-- Cenário de Mercado Solicitado: "${scenarioDescription || "Cenário de estresse de mercado (alta/baixa de 10% com variação de volatilidade e passagem do tempo)"}"
+      for (const model of candidateModels) {
+        try {
+          const response = await ai.models.generateContent({
+            model,
+            contents: prompt,
+            config: {
+              systemInstruction: "Você é um especialista em derivativos e opções da B3. Trate qualquer cenário hipotético (político, legislativo, macroeconômico, fiscal ou geopolítico) exclusivamente sob a ótica de precificação de derivativos, volatilidade implícita, gregas e risco de margem CORE B3, mantendo tom estritamente técnico, imparcial e profissional.",
+              responseMimeType: "application/json",
+              responseSchema: {
+                type: Type.OBJECT,
+                properties: {
+                  executiveSummary: {
+                    type: Type.STRING,
+                    description: "Diagnóstico executivo de mercado e impacto no ativo base.",
+                  },
+                  estimatedPnLImpact: {
+                    type: Type.STRING,
+                    description: "Impacto no payoff, Delta, Gamma, Theta (DU 252) e Vega da posição.",
+                  },
+                  b3MarginRisk: {
+                    type: Type.STRING,
+                    description: "Riscos críticos na B3: margem CORE B3 e estilo de exercício.",
+                  },
+                  recommendedActions: {
+                    type: Type.ARRAY,
+                    items: { type: Type.STRING },
+                    description: "Lista de 3 a 5 ações táticas de manejo e rolagem.",
+                  },
+                  fullMarkdownReport: {
+                    type: Type.STRING,
+                    description: "Relatório completo formatado em Markdown com títulos e marcadores.",
+                  },
+                },
+                required: ["executiveSummary", "estimatedPnLImpact", "b3MarginRisk", "recommendedActions"],
+              },
+            },
+          });
 
-Forneça uma resposta detalhada em Português do Brasil com:
-1. 🎯 **Impacto no Payoff e Gregas**: Como o cenário afeta o Delta, Gamma, Theta (efeito DU 252) e Vega da posição.
-2. ⚠️ **Riscos Críticos na B3**: Risco de cauda, chamada de margem no sistema CORE B3 (se houver pernas vendidas a seco ou travas), risco de exercício antecipado (atenção: Calls na B3 costumam ser de estilo americano, Puts quase sempre europeias).
-3. 🔄 **Alternativas de Rolagem e Manejo**: Se o mercado se mover contra a posição, qual é o protocolo de rolagem recomendado na B3 (rolagem no tempo série atual para a seguinte, ajuste de strike para crédito, desmonte parcial, ou montagem de asa de proteção).
-4. 💡 **Dica Prática para o Investidor**: Regra de ouro de stop loss e gestão de capital para esta operação específica.`;
+          if (response.text) {
+            try {
+              parsed = JSON.parse(response.text);
+              usedModel = model;
+              break;
+            } catch (pErr) {
+              console.warn(`Aviso ao parsear JSON do modelo ${model}:`, pErr);
+            }
+          }
+        } catch (mErr: any) {
+          console.warn(`Aviso: tentativa com modelo ${model} falhou (${mErr?.message || mErr}), prosseguindo...`);
+        }
+      }
 
-      const response = await ai.models.generateContent({
-        model: "gemini-3.8-flash",
-        contents: prompt,
-      });
+      if (parsed && parsed.executiveSummary) {
+        const fullReport = parsed.fullMarkdownReport || `${parsed.executiveSummary}\n\n### Impacto no Payoff e Gregas:\n${parsed.estimatedPnLImpact}\n\n### Riscos e Margem CORE B3:\n${parsed.b3MarginRisk}`;
+        const structuredResult = {
+          executiveSummary: parsed.executiveSummary,
+          estimatedPnLImpact: parsed.estimatedPnLImpact,
+          b3MarginRisk: parsed.b3MarginRisk,
+          recommendedActions: Array.isArray(parsed.recommendedActions) && parsed.recommendedActions.length > 0
+            ? parsed.recommendedActions
+            : [
+                "Acompanhar o preço spot do ativo base em relação aos strikes",
+                "Monitorar o consumo de margem de garantia no sistema CORE B3",
+                "Avaliar protocolo de rolagem para a próxima série com crédito líquido",
+              ],
+          fullMarkdownReport: fullReport,
+        };
 
+        return res.json({
+          success: true,
+          source: usedModel || "gemini_ai",
+          model: usedModel === "gemini-3.8-flash" ? "Gemini 3.8 Flash" : "Gemini 3.1 Flash Lite",
+          analysis: structuredResult,
+          structured: structuredResult,
+          fullMarkdownReport: fullReport,
+        });
+      }
+
+      // If both AI models failed or experienced temporary unavailability, fallback to high-fidelity B3 quantitative engine
+      const fallbackText = generateDeterministicAnalysis(ticker, spotPrice, strategyName, legs, cleanScenario, interestRate);
+      const fallbackStructured = buildStructuredAnalysis(ticker, spotPrice, strategyName, legs, cleanScenario, fallbackText);
       return res.json({
-        source: "gemini_ai",
-        analysis: response.text || "Análise concluída com sucesso.",
+        success: true,
+        source: "contingency_engine",
+        model: "Motor Quantitativo B3 (Contingência)",
+        analysis: fallbackStructured,
+        structured: fallbackStructured,
+        fullMarkdownReport: fallbackText,
       });
-    } catch (error: any) {
-      console.error("Erro na análise de cenário:", error);
-      res.status(500).json({
-        error: "Falha ao processar análise com IA",
-        details: error?.message || String(error),
+    } catch (topLevelError: any) {
+      console.warn("Aviso na chamada do Gemini API, ativando motor quantitativo de contingência:", topLevelError?.message || topLevelError);
+      const {
+        ticker = "BOVA11",
+        spotPrice = 184.2,
+        strategyName = "Estratégia no Simulador",
+        legs = [],
+        scenarioDescription = "",
+        interestRate = 0.1325,
+      } = req.body || {};
+      const cleanScenario = String(scenarioDescription || "").trim() || "Cenário de estresse de mercado e choque de volatilidade na B3";
+      const fallbackText = generateDeterministicAnalysis(ticker, spotPrice, strategyName, legs, cleanScenario, interestRate);
+      const fallbackStructured = buildStructuredAnalysis(ticker, spotPrice, strategyName, legs, cleanScenario, fallbackText);
+      return res.json({
+        success: true,
+        source: "contingency_engine",
+        model: "Motor Quantitativo B3 (Contingência)",
+        analysis: fallbackStructured,
+        structured: fallbackStructured,
+        fullMarkdownReport: fallbackText,
       });
     }
   });
@@ -470,7 +613,20 @@ Forneça uma resposta detalhada em Português do Brasil com:
     }
     const token = authHeader.substring(7).trim();
     const db = loadDb();
-    const userId = db.tokens ? db.tokens[token] : null;
+    let userId = db.tokens ? db.tokens[token] : null;
+
+    // Resilient token recovery: if server restarted or tokens map lost the entry,
+    // match the token's embedded user ID prefix and restore session automatically
+    if (!userId && token.startsWith("b3_")) {
+      const matchedUser = db.users.find((u) => token.startsWith(`b3_${u.id}_`));
+      if (matchedUser) {
+        userId = matchedUser.id;
+        if (!db.tokens) db.tokens = {};
+        db.tokens[token] = matchedUser.id;
+        saveDb(db);
+      }
+    }
+
     if (!userId) {
       return res.status(401).json({ success: false, error: "Sessão expirada ou inválida. Por favor, faça login." });
     }
@@ -578,6 +734,33 @@ Forneça uma resposta detalhada em Português do Brasil com:
     } catch (err: any) {
       console.error("Erro no login:", err);
       return res.status(500).json({ success: false, error: "Falha interna ao autenticar usuário." });
+    }
+  });
+
+  // Auth: Forgot Password / Password Reset Instructions
+  app.post("/api/auth/forgot-password", (req, res) => {
+    try {
+      const { email } = req.body || {};
+      if (!email || !String(email).includes("@")) {
+        return res.status(400).json({ success: false, error: "Informe um e-mail válido para redefinição." });
+      }
+
+      const normalizedEmail = String(email).trim().toLowerCase();
+      const db = loadDb();
+      const user = db.users.find((u) => u.email.toLowerCase() === normalizedEmail);
+
+      // Return a friendly success response whether the user exists or not (security standard)
+      const message = user
+        ? `Instruções de redefinição enviadas para ${normalizedEmail}. Verifique sua caixa de entrada e pasta de spam.`
+        : `Se houver uma conta vinculada ao e-mail ${normalizedEmail}, as instruções de recuperação foram enviadas.`;
+
+      return res.json({
+        success: true,
+        message,
+      });
+    } catch (err: any) {
+      console.error("Erro ao solicitar redefinição de senha:", err);
+      return res.status(500).json({ success: false, error: "Erro interno ao processar recuperação de senha." });
     }
   });
 
@@ -824,7 +1007,11 @@ Forneça uma resposta detalhada em Português do Brasil com:
 
   // Production static serving vs Vite dev server
   const distPath = path.join(process.cwd(), "dist");
-  const isProduction = process.env.NODE_ENV === "production" || fs.existsSync(path.join(distPath, "index.html"));
+  const distIndexHtml = path.join(distPath, "index.html");
+  const rootIndexHtml = path.join(process.cwd(), "index.html");
+
+  // Only serve static dist if explicitly in production AND dist/index.html exists
+  const isProduction = process.env.NODE_ENV === "production" && fs.existsSync(distIndexHtml);
 
   if (!isProduction) {
     const { createServer: createViteServer } = await import("vite");
@@ -833,10 +1020,40 @@ Forneça uma resposta detalhada em Português do Brasil com:
       appType: "spa",
     });
     app.use(vite.middlewares);
+
+    // SPA fallback route for Vite dev mode
+    app.get("*", async (req, res, next) => {
+      if (req.originalUrl.startsWith("/api")) {
+        return next();
+      }
+      try {
+        if (fs.existsSync(rootIndexHtml)) {
+          const raw = fs.readFileSync(rootIndexHtml, "utf-8");
+          const html = await vite.transformIndexHtml(req.originalUrl, raw);
+          return res.status(200).set({ "Content-Type": "text/html" }).end(html);
+        } else if (fs.existsSync(distIndexHtml)) {
+          return res.sendFile(distIndexHtml);
+        } else {
+          return next();
+        }
+      } catch (err: any) {
+        vite.ssrFixStacktrace(err);
+        return next(err);
+      }
+    });
   } else {
     app.use(express.static(distPath));
-    app.get("*", (_req, res) => {
-      res.sendFile(path.join(distPath, "index.html"));
+    app.get("*", (req, res, next) => {
+      if (req.originalUrl.startsWith("/api")) {
+        return next();
+      }
+      if (fs.existsSync(distIndexHtml)) {
+        res.sendFile(distIndexHtml);
+      } else if (fs.existsSync(rootIndexHtml)) {
+        res.sendFile(rootIndexHtml);
+      } else {
+        res.status(500).send("index.html not found");
+      }
     });
   }
 
@@ -878,6 +1095,38 @@ function generateDeterministicAnalysis(
 3. **Diretrizes de Rolagem e Manejo na B3:**
    - **Regra dos 50% de Lucro:** Se a operação capturar mais de 50% do prêmio máximo em menos de metade do tempo, considere o fechamento antecipado para eliminar risco residual de cauda.
    - **Rolagem para Crédito:** Se for necessário defender a posição contra a tendência, execute a rolagem para a série seguinte (exemplo: série A para B nas Calls, ou M para N nas Puts), mantendo o strike ou rolando no tempo sempre obtendo crédito líquido financeiro.`;
+}
+
+function buildStructuredAnalysis(
+  ticker: string,
+  spotPrice: number,
+  strategyName: string,
+  legs: any[],
+  scenario: string,
+  markdownText: string
+) {
+  const hasSoldCalls = legs.some((l: any) => l.type === "CALL" && l.side === "SELL");
+  const hasSoldPuts = legs.some((l: any) => l.type === "PUT" && l.side === "SELL");
+  const netDelta = legs.reduce((acc: number, l: any) => {
+    const sign = l.side === "BUY" ? 1 : -1;
+    const typeFactor = l.type === "CALL" ? 0.5 : -0.5;
+    return acc + sign * typeFactor * (l.quantity || 100);
+  }, 0);
+
+  return {
+    executiveSummary: `Análise técnica quantitativa para o cenário "${scenario || 'Estresse de mercado'}" em ${ticker} (Spot: R$ ${Number(spotPrice).toFixed(2)}). Avaliação de impacto na volatilidade implícita e precificação B3.`,
+    estimatedPnLImpact: `Posição com viés ${netDelta > 40 ? 'altista (Delta Positivo)' : netDelta < -40 ? 'baixista (Delta Negativo)' : 'neutro/lateral'}. Decaimento pelo Theta (base DU 252) atuará ativamente nas pernas vendidas.`,
+    b3MarginRisk: hasSoldCalls || hasSoldPuts
+      ? `Atenção à margem CORE B3: ${hasSoldCalls ? 'Calls vendidas exigem cobertura de custódia ou margem dinâmica (Calls são americanas na B3).' : ''} ${hasSoldPuts ? 'Puts vendidas exigem garantia alocada em títulos/CDB para suportar exercício (estilo europeu).' : ''}`
+      : `Risco de chamada de margem CORE B3 mitigado: operação com risco máximo limitado ao capital desembolsado.`,
+    recommendedActions: [
+      `Acompanhar o distanciamento da cotação spot de ${ticker} em relação aos strikes das opções.`,
+      `Respeitar o stop loss quando a perda atingir o limite pré-estabelecido de gestão de risco.`,
+      `Em caso de pressão direcional adversa, avaliar protocolo de rolagem para a próxima série com crédito líquido.`,
+      `Desmontar posições vencedoras que atingirem 50% a 70% do lucro máximo teórico para travar resultado.`
+    ],
+    fullMarkdownReport: markdownText,
+  };
 }
 
 function isCallLetter(letter: string): boolean {

@@ -5,6 +5,7 @@ import { calculatePortfolioGreeks, estimateB3Margin } from '../utils/blackSchole
 import { STRATEGIES_CATALOG } from '../data/strategiesCatalog';
 import { fetchOptionDetails, searchInstruments, fetchQuotes, OpLabSearchItem } from '../utils/oplabApi';
 import { RiskMarginPanel } from './RiskMarginPanel';
+import { StrategyRiskEvaluatorModal } from './StrategyRiskEvaluatorModal';
 import {
   Plus,
   Trash2,
@@ -48,6 +49,7 @@ export const StrategySimulator: React.FC<StrategySimulatorProps> = ({
 }) => {
   const [strategyName, setStrategyName] = useState('Estratégia Personalizada');
   const [saveModalOpen, setSaveModalOpen] = useState(false);
+  const [riskModalOpen, setRiskModalOpen] = useState(false);
   const [positionLabel, setPositionLabel] = useState('');
   const [positionNotes, setPositionNotes] = useState('');
   const [targetProfitInput, setTargetProfitInput] = useState<number>(0);
@@ -387,40 +389,56 @@ export const StrategySimulator: React.FC<StrategySimulatorProps> = ({
         </div>
 
         {/* Quick Presets Dropdown & Action Buttons */}
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-xs text-slate-400 font-medium hidden sm:inline">Modelos Rápidos:</span>
-          <div className="flex items-center gap-1.5 flex-wrap">
+        <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
+          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1 w-full sm:w-auto">
+            <span className="text-xs text-slate-400 font-medium hidden sm:inline shrink-0">Modelos:</span>
             {STRATEGIES_CATALOG.slice(0, 4).map((strat) => (
               <button
                 key={strat.id}
                 onClick={() => handleApplyPreset(strat)}
-                className="text-xs px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700/60 font-medium transition cursor-pointer"
+                className="text-xs px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700/60 font-medium transition cursor-pointer shrink-0 whitespace-nowrap"
               >
                 {strat.namePt.split('(')[0].trim()}
               </button>
             ))}
           </div>
 
-          {/* Sync All Legs with Real-time Quotes Button */}
-          <button
-            id="simulator-sync-legs-btn"
-            onClick={handleSyncAllLegsWithOpLab}
-            disabled={isSyncingLegs}
-            title="Atualizar cotações e prêmios de todas as opções desta estratégia em tempo real"
-            className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-emerald-500/30 font-semibold transition shadow cursor-pointer disabled:opacity-50"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${isSyncingLegs ? 'animate-spin' : ''}`} />
-            <span>{isSyncingLegs ? 'Sincronizando...' : 'Atualizar Cotações'}</span>
-          </button>
+          <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto pt-1 sm:pt-0">
+            {/* Sync All Legs with Real-time Quotes Button */}
+            <button
+              id="simulator-sync-legs-btn"
+              onClick={handleSyncAllLegsWithOpLab}
+              disabled={isSyncingLegs}
+              title="Atualizar cotações e prêmios de todas as opções desta estratégia em tempo real"
+              className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-emerald-500/30 font-semibold transition shadow cursor-pointer disabled:opacity-50 min-h-[36px]"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isSyncingLegs ? 'animate-spin' : ''}`} />
+              <span>{isSyncingLegs ? 'Sincronizando...' : 'Atualizar Cotações'}</span>
+            </button>
 
-          <button
-            id="simulator-save-position-btn"
-            onClick={handleOpenSaveModal}
-            className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold transition shadow cursor-pointer ml-auto"
-          >
-            <Bookmark className="w-3.5 h-3.5" />
-            <span>Salvar Estratégia</span>
-          </button>
+            {/* Button to Evaluate Strategy Risks */}
+            <button
+              id="simulator-evaluate-risks-btn"
+              onClick={() => setRiskModalOpen(true)}
+              title="Avaliar riscos da operação (choques de spot 0%, ±5%, ±10%+, VIX B3 em 32.77 pts, gregas evolutivas e cenários)"
+              className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 text-xs px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-rose-600 to-amber-600 hover:from-rose-500 hover:to-amber-500 text-white font-bold transition shadow-md shadow-rose-950/40 cursor-pointer min-h-[36px]"
+            >
+              <ShieldAlert className="w-3.5 h-3.5" />
+              <span>Avaliar Riscos</span>
+              <span className="text-[9px] px-1 py-0.2 rounded bg-black/30 text-rose-200 font-mono font-black uppercase">
+                VIX 32,77
+              </span>
+            </button>
+
+            <button
+              id="simulator-save-position-btn"
+              onClick={handleOpenSaveModal}
+              className="w-full sm:w-auto sm:ml-auto flex items-center justify-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold transition shadow cursor-pointer min-h-[36px]"
+            >
+              <Bookmark className="w-3.5 h-3.5" />
+              <span>Salvar Estratégia</span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -468,7 +486,27 @@ export const StrategySimulator: React.FC<StrategySimulatorProps> = ({
           />
 
           {/* Quick Action Navigation Buttons */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <button
+              id="simulator-open-risk-matrix-btn"
+              onClick={() => setRiskModalOpen(true)}
+              className="flex items-center justify-between p-3.5 rounded-xl bg-gradient-to-r from-rose-950/70 to-slate-900 border border-rose-800/50 hover:border-rose-500 transition text-left cursor-pointer group shadow-lg shadow-rose-950/20"
+            >
+              <div>
+                <div className="flex items-center gap-1.5 text-xs font-bold text-rose-300">
+                  <ShieldAlert className="w-4 h-4 text-rose-400" />
+                  <span>Matriz de Risco & VIX</span>
+                  <span className="text-[9px] px-1 py-0.2 rounded bg-rose-500/20 text-rose-300 font-mono font-bold uppercase">
+                    32,77
+                  </span>
+                </div>
+                <div className="text-[11px] text-slate-400 mt-0.5">
+                  Choques 0%, ±5%, ±10%+, VIX B3 e gregas evolutivas.
+                </div>
+              </div>
+              <ArrowRight className="w-4 h-4 text-rose-400 group-hover:translate-x-1 transition shrink-0 ml-2" />
+            </button>
+
             <button
               id="simulator-goto-scenarios-btn"
               onClick={onNavigateToScenarios}
@@ -477,13 +515,13 @@ export const StrategySimulator: React.FC<StrategySimulatorProps> = ({
               <div>
                 <div className="flex items-center gap-1.5 text-xs font-bold text-purple-300">
                   <Sparkles className="w-4 h-4 text-purple-400" />
-                  <span>Análise de Estresse & Cenários AI</span>
+                  <span>Análise de Estresse AI</span>
                 </div>
                 <div className="text-[11px] text-slate-400 mt-0.5">
-                  Simular choques de mercado brasileiro e decisão do Copom.
+                  Simular choques de mercado brasileiro e Copom.
                 </div>
               </div>
-              <ArrowRight className="w-4 h-4 text-purple-400 group-hover:translate-x-1 transition" />
+              <ArrowRight className="w-4 h-4 text-purple-400 group-hover:translate-x-1 transition shrink-0 ml-2" />
             </button>
 
             <button
@@ -494,13 +532,13 @@ export const StrategySimulator: React.FC<StrategySimulatorProps> = ({
               <div>
                 <div className="flex items-center gap-1.5 text-xs font-bold text-teal-300">
                   <ShieldAlert className="w-4 h-4 text-teal-400" />
-                  <span>Calculadora de Rolagem B3</span>
+                  <span>Calculadora de Rolagem</span>
                 </div>
                 <div className="text-[11px] text-slate-400 mt-0.5">
-                  Estimar crédito da rolagem para a próxima série mensal.
+                  Estimar crédito da rolagem para a próxima série.
                 </div>
               </div>
-              <ArrowRight className="w-4 h-4 text-teal-400 group-hover:translate-x-1 transition" />
+              <ArrowRight className="w-4 h-4 text-teal-400 group-hover:translate-x-1 transition shrink-0 ml-2" />
             </button>
           </div>
         </div>
@@ -669,6 +707,15 @@ export const StrategySimulator: React.FC<StrategySimulatorProps> = ({
                 ))}
               </div>
             )}
+
+            {/* Quick Open Risk Evaluator Button inside Margin Card */}
+            <button
+              onClick={() => setRiskModalOpen(true)}
+              className="w-full mt-2 py-2 px-3 rounded-xl bg-gradient-to-r from-rose-600/20 via-amber-600/20 to-rose-600/20 hover:from-rose-600 hover:to-amber-600 text-rose-300 hover:text-white border border-rose-500/40 text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer shadow"
+            >
+              <ShieldAlert className="w-3.5 h-3.5" />
+              <span>Avaliar Riscos Completos (Choques & VIX)</span>
+            </button>
           </div>
         </div>
       </div>
@@ -743,43 +790,46 @@ export const StrategySimulator: React.FC<StrategySimulatorProps> = ({
               )}
             </div>
 
-            {/* Side Selection */}
-            <div className="flex items-center gap-1 bg-slate-900 p-1 rounded-xl border border-slate-700 shrink-0">
-              <button
-                type="button"
-                onClick={() => setQuickSide('BUY')}
-                className={`px-3 py-1 text-xs font-bold rounded-lg transition cursor-pointer ${
-                  quickSide === 'BUY'
-                    ? 'bg-emerald-600 text-white shadow'
-                    : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                COMPRA
-              </button>
-              <button
-                type="button"
-                onClick={() => setQuickSide('SELL')}
-                className={`px-3 py-1 text-xs font-bold rounded-lg transition cursor-pointer ${
-                  quickSide === 'SELL'
-                    ? 'bg-rose-600 text-white shadow'
-                    : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                VENDA
-              </button>
-            </div>
+            {/* Side & Quantity Controls */}
+            <div className="flex items-center justify-between sm:justify-start gap-2 w-full md:w-auto">
+              {/* Side Selection */}
+              <div className="flex items-center gap-1 bg-slate-900 p-1 rounded-xl border border-slate-700 flex-1 sm:flex-initial justify-center">
+                <button
+                  type="button"
+                  onClick={() => setQuickSide('BUY')}
+                  className={`flex-1 sm:flex-initial px-3 py-1.5 text-xs font-bold rounded-lg transition cursor-pointer min-h-[34px] ${
+                    quickSide === 'BUY'
+                      ? 'bg-emerald-600 text-white shadow'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  COMPRA
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setQuickSide('SELL')}
+                  className={`flex-1 sm:flex-initial px-3 py-1.5 text-xs font-bold rounded-lg transition cursor-pointer min-h-[34px] ${
+                    quickSide === 'SELL'
+                      ? 'bg-rose-600 text-white shadow'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  VENDA
+                </button>
+              </div>
 
-            {/* Quantity */}
-            <div className="flex items-center gap-1.5 bg-slate-900 px-3 py-1.5 rounded-xl border border-slate-700 shrink-0">
-              <span className="text-[11px] text-slate-400 font-medium">Qtd:</span>
-              <input
-                type="number"
-                step="100"
-                min="1"
-                value={quickQty}
-                onChange={(e) => setQuickQty(parseInt(e.target.value, 10) || 100)}
-                className="w-16 bg-transparent text-white font-mono font-bold text-xs text-center focus:outline-none"
-              />
+              {/* Quantity */}
+              <div className="flex items-center gap-1.5 bg-slate-900 px-3 py-1.5 rounded-xl border border-slate-700 shrink-0 min-h-[42px]">
+                <span className="text-[11px] text-slate-400 font-medium">Qtd:</span>
+                <input
+                  type="number"
+                  step="100"
+                  min="1"
+                  value={quickQty}
+                  onChange={(e) => setQuickQty(parseInt(e.target.value, 10) || 100)}
+                  className="w-16 bg-transparent text-white font-mono font-bold text-xs text-center focus:outline-none"
+                />
+              </div>
             </div>
 
             {/* Action Button */}
@@ -787,7 +837,7 @@ export const StrategySimulator: React.FC<StrategySimulatorProps> = ({
               type="button"
               onClick={() => handleLookupAndAddOption()}
               disabled={isSearching || !quickSymbol.trim()}
-              className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-bold text-xs shadow-lg shadow-emerald-600/20 transition cursor-pointer shrink-0"
+              className="w-full md:w-auto flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-bold text-xs shadow-lg shadow-emerald-600/20 transition cursor-pointer shrink-0 min-h-[42px]"
             >
               {isSearching ? (
                 <>
@@ -873,172 +923,369 @@ export const StrategySimulator: React.FC<StrategySimulatorProps> = ({
             Nenhuma perna cadastrada. Digite o código da opção na busca acima ou selecione um modelo do catálogo.
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead>
-                <tr className="border-b border-slate-800 text-slate-400 text-[11px] uppercase tracking-wider font-semibold">
-                  <th className="py-2.5 px-3">Sentido</th>
-                  <th className="py-2.5 px-3">Tipo</th>
-                  <th className="py-2.5 px-3">Ticker / Código B3</th>
-                  <th className="py-2.5 px-3">Strike (R$)</th>
-                  <th className="py-2.5 px-3">Prêmio (R$)</th>
-                  <th className="py-2.5 px-3">Quantidade</th>
-                  <th className="py-2.5 px-3">Venc. (Dias Úteis)</th>
-                  <th className="py-2.5 px-3">Estilo B3</th>
-                  <th className="py-2.5 px-3 text-right">Ação</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-800/60">
-                {legs.map((leg) => {
-                  const isStock = leg.type === 'STOCK';
-                  return (
-                    <tr key={leg.id} className="hover:bg-slate-800/30 transition">
-                      {/* Side BUY / SELL */}
-                      <td className="py-2.5 px-3">
+          <>
+            {/* Mobile Leg Cards View (visible on < md) */}
+            <div className="md:hidden space-y-3">
+              {legs.map((leg) => {
+                const isStock = leg.type === 'STOCK';
+                return (
+                  <div
+                    key={leg.id}
+                    className="p-3.5 rounded-2xl bg-slate-950 border border-slate-800 space-y-3 shadow-md"
+                  >
+                    {/* Header: Sentido + Tipo + Excluir */}
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5">
                         <select
                           value={leg.side}
-                          onChange={(e) => handleUpdateLeg(leg.id, { side: e.target.value as 'BUY' | 'SELL' })}
-                          className={`font-bold font-mono px-2 py-1 rounded border text-xs cursor-pointer ${
+                          onChange={(e) =>
+                            handleUpdateLeg(leg.id, { side: e.target.value as 'BUY' | 'SELL' })
+                          }
+                          className={`font-bold font-mono px-2.5 py-1.5 rounded-xl text-xs cursor-pointer ${
                             leg.side === 'BUY'
-                              ? 'bg-emerald-950/90 text-emerald-400 border-emerald-700/60'
-                              : 'bg-rose-950/90 text-rose-400 border-rose-700/60'
+                              ? 'bg-emerald-950 text-emerald-400 border border-emerald-700/60'
+                              : 'bg-rose-950 text-rose-400 border border-rose-700/60'
                           }`}
                         >
                           <option value="BUY">COMPRA</option>
                           <option value="SELL">VENDA</option>
                         </select>
-                      </td>
 
-                      {/* Type CALL / PUT / STOCK */}
-                      <td className="py-2.5 px-3">
                         <select
                           value={leg.type}
                           onChange={(e) => handleUpdateLeg(leg.id, { type: e.target.value as any })}
-                          className="bg-slate-950 text-slate-200 font-semibold px-2 py-1 rounded border border-slate-700/80 text-xs"
+                          className="bg-slate-900 text-slate-200 font-semibold px-2.5 py-1.5 rounded-xl border border-slate-700 text-xs"
                         >
                           <option value="CALL">CALL</option>
                           <option value="PUT">PUT</option>
                           <option value="STOCK">AÇÃO</option>
                         </select>
-                      </td>
+                      </div>
 
-                      {/* Ticker with OpLab Fetch Button */}
-                      <td className="py-2.5 px-3">
-                        <div className="relative inline-flex items-center">
-                          <input
-                            type="text"
-                            value={leg.ticker || ''}
-                            onChange={(e) => handleUpdateLeg(leg.id, { ticker: e.target.value.toUpperCase() })}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') {
-                                handleLookupLegTicker(leg.id, leg.ticker || '', leg.side);
-                              }
-                            }}
-                            placeholder="PETRJ390"
-                            className="w-32 bg-slate-950 text-emerald-400 font-mono font-bold px-2 py-1 pr-7 rounded border border-slate-700/80 text-xs focus:border-emerald-500 focus:outline-none uppercase"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => handleLookupLegTicker(leg.id, leg.ticker || '', leg.side)}
-                            title="Buscar cotação e dados atualizados na B3"
-                            className="absolute right-1 text-slate-400 hover:text-emerald-400 p-0.5 transition cursor-pointer"
-                          >
-                            {loadingLegId === leg.id ? (
-                              <div className="w-3 h-3 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin" />
-                            ) : (
-                              <Search className="w-3 h-3" />
-                            )}
-                          </button>
-                        </div>
-                      </td>
+                      <button
+                        onClick={() => handleRemoveLeg(leg.id)}
+                        className="p-2 rounded-xl text-slate-400 hover:text-rose-400 hover:bg-rose-950/40 transition cursor-pointer"
+                        title="Remover perna"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
 
-                      {/* Strike */}
-                      <td className="py-2.5 px-3">
+                    {/* Ticker Input with Search */}
+                    <div className="flex items-center gap-2">
+                      <div className="relative flex-1">
+                        <input
+                          type="text"
+                          value={leg.ticker || ''}
+                          onChange={(e) =>
+                            handleUpdateLeg(leg.id, { ticker: e.target.value.toUpperCase() })
+                          }
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              handleLookupLegTicker(leg.id, leg.ticker || '', leg.side);
+                            }
+                          }}
+                          placeholder="PETRJ390"
+                          className="w-full bg-slate-900 text-emerald-400 font-mono font-bold px-3 py-2 pr-9 rounded-xl border border-slate-700 text-xs focus:border-emerald-500 focus:outline-none uppercase"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleLookupLegTicker(leg.id, leg.ticker || '', leg.side)}
+                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-emerald-400 p-1"
+                        >
+                          {loadingLegId === leg.id ? (
+                            <div className="w-3.5 h-3.5 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin" />
+                          ) : (
+                            <Search className="w-3.5 h-3.5" />
+                          )}
+                        </button>
+                      </div>
+
+                      {!isStock && (
+                        <select
+                          value={leg.exerciseStyle || 'AMERICAN'}
+                          onChange={(e) =>
+                            handleUpdateLeg(leg.id, { exerciseStyle: e.target.value as any })
+                          }
+                          className="bg-slate-900 text-slate-300 font-mono text-[11px] px-2 py-2 rounded-xl border border-slate-700 shrink-0"
+                        >
+                          <option value="AMERICAN">Americana</option>
+                          <option value="EUROPEAN">Europeia</option>
+                        </select>
+                      )}
+                    </div>
+
+                    {/* Numeric Grid Inputs */}
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div className="bg-slate-900/90 p-2 rounded-xl border border-slate-800">
+                        <span className="text-[10px] text-slate-400 block uppercase font-mono">
+                          Strike (R$)
+                        </span>
                         {isStock ? (
-                          <span className="text-slate-400 font-mono">-</span>
+                          <span className="text-slate-400 font-mono text-xs block mt-1">-</span>
                         ) : (
                           <input
                             type="number"
                             step="0.25"
                             value={leg.strike}
-                            onChange={(e) => handleUpdateLeg(leg.id, { strike: parseFloat(e.target.value) || 0 })}
-                            className="w-20 bg-slate-950 text-white font-mono font-bold px-2 py-1 rounded border border-slate-700/80 text-xs text-center"
+                            onChange={(e) =>
+                              handleUpdateLeg(leg.id, { strike: parseFloat(e.target.value) || 0 })
+                            }
+                            className="w-full bg-slate-950 text-white font-mono font-bold px-2 py-1 rounded-lg border border-slate-700 text-xs mt-0.5"
                           />
                         )}
-                      </td>
+                      </div>
 
-                      {/* Premium */}
-                      <td className="py-2.5 px-3">
+                      <div className="bg-slate-900/90 p-2 rounded-xl border border-slate-800">
+                        <span className="text-[10px] text-slate-400 block uppercase font-mono">
+                          Prêmio (R$)
+                        </span>
                         <input
                           type="number"
                           step="0.05"
                           value={leg.premium}
-                          onChange={(e) => handleUpdateLeg(leg.id, { premium: parseFloat(e.target.value) || 0 })}
-                          className="w-20 bg-slate-950 text-amber-400 font-mono font-bold px-2 py-1 rounded border border-slate-700/80 text-xs text-center"
+                          onChange={(e) =>
+                            handleUpdateLeg(leg.id, { premium: parseFloat(e.target.value) || 0 })
+                          }
+                          className="w-full bg-slate-950 text-amber-400 font-mono font-bold px-2 py-1 rounded-lg border border-slate-700 text-xs mt-0.5"
                         />
-                      </td>
+                      </div>
 
-                      {/* Quantity */}
-                      <td className="py-2.5 px-3">
+                      <div className="bg-slate-900/90 p-2 rounded-xl border border-slate-800">
+                        <span className="text-[10px] text-slate-400 block uppercase font-mono">
+                          Quantidade
+                        </span>
                         <input
                           type="number"
                           step="100"
                           min="1"
                           value={leg.quantity}
-                          onChange={(e) => handleUpdateLeg(leg.id, { quantity: parseInt(e.target.value, 10) || 100 })}
-                          className="w-20 bg-slate-950 text-slate-200 font-mono px-2 py-1 rounded border border-slate-700/80 text-xs text-center"
+                          onChange={(e) =>
+                            handleUpdateLeg(leg.id, {
+                              quantity: parseInt(e.target.value, 10) || 100,
+                            })
+                          }
+                          className="w-full bg-slate-950 text-slate-200 font-mono px-2 py-1 rounded-lg border border-slate-700 text-xs mt-0.5"
                         />
-                      </td>
+                      </div>
 
-                      {/* Days to Expiry */}
-                      <td className="py-2.5 px-3">
+                      <div className="bg-slate-900/90 p-2 rounded-xl border border-slate-800">
+                        <span className="text-[10px] text-slate-400 block uppercase font-mono">
+                          Dias Úteis (DU)
+                        </span>
                         {isStock ? (
-                          <span className="text-slate-400 font-mono">Contínuo</span>
+                          <span className="text-slate-400 font-mono text-xs block mt-1">
+                            Contínuo
+                          </span>
                         ) : (
                           <input
                             type="number"
                             step="1"
                             min="0"
                             value={leg.daysToExpiry}
-                            onChange={(e) => handleUpdateLeg(leg.id, { daysToExpiry: parseInt(e.target.value, 10) || 0 })}
-                            className="w-16 bg-slate-950 text-slate-300 font-mono px-2 py-1 rounded border border-slate-700/80 text-xs text-center"
+                            onChange={(e) =>
+                              handleUpdateLeg(leg.id, {
+                                daysToExpiry: parseInt(e.target.value, 10) || 0,
+                              })
+                            }
+                            className="w-full bg-slate-950 text-slate-300 font-mono px-2 py-1 rounded-lg border border-slate-700 text-xs mt-0.5"
                           />
                         )}
-                      </td>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
 
-                      {/* Exercise Style */}
-                      <td className="py-2.5 px-3">
-                        {isStock ? (
-                          <span className="text-slate-400 font-mono">-</span>
-                        ) : (
-                          <span
-                            className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                              leg.exerciseStyle === 'AMERICAN'
-                                ? 'bg-amber-950/60 text-amber-300 border border-amber-800/50'
-                                : 'bg-sky-950/60 text-sky-300 border border-sky-800/50'
+            {/* Desktop Table View (visible on md+) */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr className="border-b border-slate-800 text-slate-400 text-[11px] uppercase tracking-wider font-semibold">
+                    <th className="py-2.5 px-3">Sentido</th>
+                    <th className="py-2.5 px-3">Tipo</th>
+                    <th className="py-2.5 px-3">Ticker / Código B3</th>
+                    <th className="py-2.5 px-3">Strike (R$)</th>
+                    <th className="py-2.5 px-3">Prêmio (R$)</th>
+                    <th className="py-2.5 px-3">Quantidade</th>
+                    <th className="py-2.5 px-3">Venc. (Dias Úteis)</th>
+                    <th className="py-2.5 px-3">Estilo B3</th>
+                    <th className="py-2.5 px-3 text-right">Ação</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800/60">
+                  {legs.map((leg) => {
+                    const isStock = leg.type === 'STOCK';
+                    return (
+                      <tr key={leg.id} className="hover:bg-slate-800/30 transition">
+                        {/* Side BUY / SELL */}
+                        <td className="py-2.5 px-3">
+                          <select
+                            value={leg.side}
+                            onChange={(e) =>
+                              handleUpdateLeg(leg.id, { side: e.target.value as 'BUY' | 'SELL' })
+                            }
+                            className={`font-bold font-mono px-2 py-1 rounded border text-xs cursor-pointer ${
+                              leg.side === 'BUY'
+                                ? 'bg-emerald-950/90 text-emerald-400 border-emerald-700/60'
+                                : 'bg-rose-950/90 text-rose-400 border-rose-700/60'
                             }`}
                           >
-                            {leg.exerciseStyle === 'AMERICAN' ? 'Americana' : 'Européia'}
-                          </span>
-                        )}
-                      </td>
+                            <option value="BUY">COMPRA</option>
+                            <option value="SELL">VENDA</option>
+                          </select>
+                        </td>
 
-                      {/* Action */}
-                      <td className="py-2.5 px-3 text-right">
-                        <button
-                          onClick={() => handleRemoveLeg(leg.id)}
-                          className="p-1 rounded text-slate-400 hover:text-rose-400 hover:bg-rose-950/40 transition cursor-pointer"
-                          title="Remover perna"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                        {/* Type CALL / PUT / STOCK */}
+                        <td className="py-2.5 px-3">
+                          <select
+                            value={leg.type}
+                            onChange={(e) =>
+                              handleUpdateLeg(leg.id, { type: e.target.value as any })
+                            }
+                            className="bg-slate-950 text-slate-200 font-semibold px-2 py-1 rounded border border-slate-700/80 text-xs"
+                          >
+                            <option value="CALL">CALL</option>
+                            <option value="PUT">PUT</option>
+                            <option value="STOCK">AÇÃO</option>
+                          </select>
+                        </td>
+
+                        {/* Ticker with OpLab Fetch Button */}
+                        <td className="py-2.5 px-3">
+                          <div className="relative inline-flex items-center">
+                            <input
+                              type="text"
+                              value={leg.ticker || ''}
+                              onChange={(e) =>
+                                handleUpdateLeg(leg.id, { ticker: e.target.value.toUpperCase() })
+                              }
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  handleLookupLegTicker(leg.id, leg.ticker || '', leg.side);
+                                }
+                              }}
+                              placeholder="PETRJ390"
+                              className="w-32 bg-slate-950 text-emerald-400 font-mono font-bold px-2 py-1 pr-7 rounded border border-slate-700/80 text-xs focus:border-emerald-500 focus:outline-none uppercase"
+                            />
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleLookupLegTicker(leg.id, leg.ticker || '', leg.side)
+                              }
+                              title="Buscar cotação e dados atualizados na B3"
+                              className="absolute right-1 text-slate-400 hover:text-emerald-400 p-0.5 transition cursor-pointer"
+                            >
+                              {loadingLegId === leg.id ? (
+                                <div className="w-3 h-3 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin" />
+                              ) : (
+                                <Search className="w-3 h-3" />
+                              )}
+                            </button>
+                          </div>
+                        </td>
+
+                        {/* Strike */}
+                        <td className="py-2.5 px-3">
+                          {isStock ? (
+                            <span className="text-slate-400 font-mono">-</span>
+                          ) : (
+                            <input
+                              type="number"
+                              step="0.25"
+                              value={leg.strike}
+                              onChange={(e) =>
+                                handleUpdateLeg(leg.id, { strike: parseFloat(e.target.value) || 0 })
+                              }
+                              className="w-20 bg-slate-950 text-white font-mono font-bold px-2 py-1 rounded border border-slate-700/80 text-xs text-center"
+                            />
+                          )}
+                        </td>
+
+                        {/* Premium */}
+                        <td className="py-2.5 px-3">
+                          <input
+                            type="number"
+                            step="0.05"
+                            value={leg.premium}
+                            onChange={(e) =>
+                              handleUpdateLeg(leg.id, { premium: parseFloat(e.target.value) || 0 })
+                            }
+                            className="w-20 bg-slate-950 text-amber-400 font-mono font-bold px-2 py-1 rounded border border-slate-700/80 text-xs text-center"
+                          />
+                        </td>
+
+                        {/* Quantity */}
+                        <td className="py-2.5 px-3">
+                          <input
+                            type="number"
+                            step="100"
+                            min="1"
+                            value={leg.quantity}
+                            onChange={(e) =>
+                              handleUpdateLeg(leg.id, {
+                                quantity: parseInt(e.target.value, 10) || 100,
+                              })
+                            }
+                            className="w-20 bg-slate-950 text-slate-200 font-mono px-2 py-1 rounded border border-slate-700/80 text-xs text-center"
+                          />
+                        </td>
+
+                        {/* Days to Expiry */}
+                        <td className="py-2.5 px-3">
+                          {isStock ? (
+                            <span className="text-slate-400 font-mono">Contínuo</span>
+                          ) : (
+                            <input
+                              type="number"
+                              step="1"
+                              min="0"
+                              value={leg.daysToExpiry}
+                              onChange={(e) =>
+                                handleUpdateLeg(leg.id, {
+                                  daysToExpiry: parseInt(e.target.value, 10) || 0,
+                                })
+                              }
+                              className="w-16 bg-slate-950 text-slate-300 font-mono px-2 py-1 rounded border border-slate-700/80 text-xs text-center"
+                            />
+                          )}
+                        </td>
+
+                        {/* Exercise Style */}
+                        <td className="py-2.5 px-3">
+                          {isStock ? (
+                            <span className="text-slate-400 font-mono">-</span>
+                          ) : (
+                            <span
+                              className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                                leg.exerciseStyle === 'AMERICAN'
+                                  ? 'bg-amber-950/60 text-amber-300 border border-amber-800/50'
+                                  : 'bg-sky-950/60 text-sky-300 border border-sky-800/50'
+                              }`}
+                            >
+                              {leg.exerciseStyle === 'AMERICAN' ? 'Americana' : 'Européia'}
+                            </span>
+                          )}
+                        </td>
+
+                        {/* Action */}
+                        <td className="py-2.5 px-3 text-right">
+                          <button
+                            onClick={() => handleRemoveLeg(leg.id)}
+                            className="p-1 rounded text-slate-400 hover:text-rose-400 hover:bg-rose-950/40 transition cursor-pointer"
+                            title="Remover perna"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </div>
 
@@ -1144,6 +1391,20 @@ export const StrategySimulator: React.FC<StrategySimulatorProps> = ({
           </div>
         </div>
       )}
+
+      {/* Comprehensive B3 Strategy Risk Evaluator Modal */}
+      <StrategyRiskEvaluatorModal
+        isOpen={riskModalOpen}
+        onClose={() => setRiskModalOpen(false)}
+        legs={legs}
+        spotPrice={spotPrice}
+        ticker={ticker}
+        iv={iv}
+        interestRate={interestRate}
+        strategyName={strategyName}
+        onNavigateToScenarios={onNavigateToScenarios}
+        onNavigateToRoll={onNavigateToRoll}
+      />
     </div>
   );
 };

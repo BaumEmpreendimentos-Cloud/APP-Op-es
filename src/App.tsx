@@ -5,7 +5,9 @@ import { StrategyCatalog } from './components/StrategyCatalog';
 import { ScenarioAnalysis } from './components/ScenarioAnalysis';
 import { RollManager } from './components/RollManager';
 import { Academy } from './components/Academy';
+import { IbovespaVix } from './components/IbovespaVix';
 import { AuthModal } from './components/AuthModal';
+import { MobileBottomNav } from './components/MobileBottomNav';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { OptionLeg, PositionRecord, StrategyTemplate, StrategyPerformancePoint } from './types';
 import { IBOVESPA_ASSETS } from './data/ibovAssets';
@@ -26,7 +28,7 @@ function AppContent() {
   const { user, token, isLoading: authLoading } = useAuth();
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
 
-  const [activeTab, setActiveTab] = useState<'simulator' | 'catalog' | 'scenarios' | 'roll' | 'academy'>('roll');
+  const [activeTab, setActiveTab] = useState<'simulator' | 'catalog' | 'scenarios' | 'roll' | 'academy' | 'vix'>('roll');
   const [selectedTicker, setSelectedTicker] = useState<string>('BOVA11');
   const [spotPrice, setSpotPrice] = useState<number>(184.20);
   const [interestRate, setInterestRate] = useState<number>(0.1325); // 13.25% Selic
@@ -62,11 +64,12 @@ function AppContent() {
     },
   ]);
 
-  // Saved portfolio positions - ISOLATED PER USER
-  const [positions, setPositions] = useState<PositionRecord[]>([]);
+  // Saved portfolio positions - ISOLATED PER USER WITH DUAL PERSISTENCE
+  const [positions, setPositions] = useState<PositionRecord[]>(() =>
+    strategyService.getLocalStrategies(user?.id || 'guest')
+  );
   const [isLoadingPositions, setIsLoadingPositions] = useState<boolean>(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -75,20 +78,24 @@ function AppContent() {
     }, 3500);
   };
 
-  // Load strategies whenever authenticated user changes (STRICT MULTI-USER ISOLATION)
+  // Load strategies whenever authenticated user changes (STRICT MULTI-USER ISOLATION + INSTANT LOCAL CACHE)
   useEffect(() => {
-    if (!user || !token) {
-      setPositions([]);
-      return;
+    const currentUserId = user?.id || 'guest';
+    // 1. Immediately hydrate from local storage
+    const cached = strategyService.getLocalStrategies(currentUserId);
+    if (cached.length > 0) {
+      setPositions(cached);
     }
 
     let isMounted = true;
     const loadUserStrategies = async () => {
       setIsLoadingPositions(true);
       try {
-        const userStrategies = await strategyService.fetchUserStrategies(token, user.id);
-        if (isMounted) {
+        const userStrategies = await strategyService.fetchUserStrategies(token || '', currentUserId);
+        if (isMounted && userStrategies.length > 0) {
           setPositions(userStrategies);
+        } else if (isMounted && cached.length > 0) {
+          setPositions(cached);
         }
       } catch (err) {
         console.warn('Erro ao carregar estratégias do usuário:', err);
@@ -109,16 +116,20 @@ function AppContent() {
   const handleUpdatePositions = (
     updater: PositionRecord[] | ((prev: PositionRecord[]) => PositionRecord[])
   ) => {
+    const currentUserId = user?.id || 'guest';
     setPositions((prev) => {
       const next = typeof updater === 'function' ? updater(prev) : updater;
 
-      // Asynchronously synchronize changes to persistent backend for current user
+      // 1. Immediately update localStorage
+      strategyService.setLocalStrategies(currentUserId, next);
+
+      // 2. Asynchronously synchronize changes to persistent backend for current user
       if (user && token) {
         const nextIds = new Set(next.map((p) => p.id));
         // Identify deletions
         prev.forEach((p) => {
           if (!nextIds.has(p.id)) {
-            strategyService.deleteStrategy(token, p.id);
+            strategyService.deleteStrategy(token, p.id, user.id);
           }
         });
 
@@ -126,9 +137,9 @@ function AppContent() {
         next.forEach((p) => {
           const old = prev.find((o) => o.id === p.id);
           if (!old) {
-            strategyService.saveStrategy(token, { ...p, userId: user.id });
+            strategyService.saveStrategy(token, { ...p, userId: user.id }, user.id);
           } else if (JSON.stringify(old) !== JSON.stringify(p)) {
-            strategyService.updateStrategy(token, p.id, { ...p, userId: user.id });
+            strategyService.updateStrategy(token, p.id, { ...p, userId: user.id }, user.id);
           }
         });
       }
@@ -145,7 +156,7 @@ function AppContent() {
     showToast(`Estratégia "${template.namePt}" carregada com sucesso!`);
   };
 
-  // Save current strategy to positions with full persistence in server DB
+  // Save current strategy to positions with full persistence in server DB & localStorage
   const handleSavePosition = async (
     name: string,
     notes?: string,
@@ -165,9 +176,11 @@ function AppContent() {
       roiPercent: 0,
     };
 
+    const currentUserId = user?.id || 'guest';
+
     const newPos: PositionRecord = {
       id: `pos-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
-      userId: user?.id,
+      userId: currentUserId,
       name,
       ticker: selectedTicker,
       legs: JSON.parse(JSON.stringify(legs)),
@@ -184,12 +197,16 @@ function AppContent() {
       lastUpdated: new Date().toISOString(),
     };
 
-    if (token && user) {
-      await strategyService.saveStrategy(token, newPos);
-    }
+    // Save to dual-storage (localStorage + server DB)
+    await strategyService.saveStrategy(token || '', newPos, currentUserId);
 
     setPositions((prev) => [newPos, ...prev]);
-    showToast(`Posição "${name}" salva com sucesso no portfólio de ${user?.name || 'sua conta'}!`);
+
+    if (user) {
+      showToast(`Posição "${name}" salva com sucesso no portfólio de ${user.name}!`);
+    } else {
+      showToast(`Posição "${name}" salva localmente! Crie uma conta ou faça login para sincronizar.`);
+    }
   };
 
   // Function to fetch live asset quote via OpLab API
@@ -268,81 +285,15 @@ function AppContent() {
     await fetchLiveQuote(pos.ticker, false);
   };
 
-  // Export JSON backup of user strategies
-  const handleExportBackup = () => {
-    if (!user) return;
-    const backupData = {
-      exportDate: new Date().toISOString(),
-      user: { id: user.id, name: user.name, email: user.email },
-      totalStrategies: positions.length,
-      strategies: positions,
-    };
-
-    const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `estrategias-b3-${user.name.toLowerCase().replace(/\s+/g, '-')}-${new Date().toISOString().slice(0, 10)}.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    showToast(`Backup de ${positions.length} estratégias baixado com sucesso!`);
-  };
-
-  // Import JSON backup of user strategies
-  const handleImportBackup = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = async (e) => {
-      try {
-        const raw = e.target?.result as string;
-        const parsed = JSON.parse(raw);
-        const importedList: PositionRecord[] = Array.isArray(parsed)
-          ? parsed
-          : Array.isArray(parsed.strategies)
-          ? parsed.strategies
-          : [];
-
-        if (importedList.length === 0) {
-          showToast('Nenhuma estratégia encontrada no arquivo selecionado.');
-          return;
-        }
-
-        if (token && user) {
-          await strategyService.bulkSync(token, importedList);
-          const refreshed = await strategyService.fetchUserStrategies(token, user.id);
-          setPositions(refreshed);
-          showToast(`${importedList.length} estratégias restauradas com sucesso na sua conta!`);
-        }
-      } catch (err) {
-        showToast('Erro ao ler arquivo de backup. Formato JSON inválido.');
-      }
-    };
-    reader.readAsText(file);
-    if (fileInputRef.current) fileInputRef.current.value = '';
-  };
-
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-emerald-500 selection:text-slate-950">
-      {/* Toast Notification */}
+      {/* Toast Notification (above mobile bottom bar) */}
       {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2 bg-emerald-600 text-white px-4 py-2.5 rounded-xl shadow-2xl border border-emerald-400/40 text-xs font-bold animate-fadeIn">
+        <div className="fixed bottom-20 sm:bottom-6 right-4 sm:right-6 left-4 sm:left-auto max-w-sm z-50 flex items-center gap-2 bg-emerald-600 text-white px-4 py-2.5 rounded-xl shadow-2xl border border-emerald-400/40 text-xs font-bold animate-fadeIn">
           <CheckCircle2 className="w-4 h-4 shrink-0" />
           <span>{toastMessage}</span>
         </div>
       )}
-
-      {/* Hidden file input for backup restore */}
-      <input
-        type="file"
-        ref={fileInputRef}
-        onChange={handleImportBackup}
-        accept=".json"
-        className="hidden"
-      />
 
       {/* Main App Navigation Header */}
       <Header
@@ -364,7 +315,7 @@ function AppContent() {
       />
 
       {/* Main Tab Content Container */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <main className="flex-1 max-w-7xl w-full mx-auto px-2.5 sm:px-6 lg:px-8 py-3 sm:py-6 pb-28 md:pb-8">
         {activeTab === 'simulator' && (
           <StrategySimulator
             legs={legs}
@@ -416,8 +367,20 @@ function AppContent() {
           />
         )}
 
+        {activeTab === 'vix' && (
+          <IbovespaVix
+            spotPrice={spotPrice}
+            selectedTicker={selectedTicker}
+            onSelectStrategy={handleSelectStrategy}
+            onNavigateToSimulator={() => setActiveTab('simulator')}
+          />
+        )}
+
         {activeTab === 'academy' && <Academy />}
       </main>
+
+      {/* Mobile Bottom Navigation Bar (Fixed for Mobile Screens) */}
+      <MobileBottomNav activeTab={activeTab} setActiveTab={setActiveTab} />
 
       {/* Footer & Brazilian Market Notice */}
       <footer className="border-t border-slate-800/80 bg-slate-950/80 py-6 text-xs text-slate-400">
@@ -451,8 +414,6 @@ function AppContent() {
         onLoginSuccess={(name) => {
           showToast(`Conectado com sucesso como ${name}! Suas estratégias estão carregadas.`);
         }}
-        onExportBackup={handleExportBackup}
-        onImportBackup={() => fileInputRef.current?.click()}
       />
     </div>
   );

@@ -31,9 +31,50 @@
       "passwordHash": "9c18e929cf31743c553b965fbd54b53bd77d11090f0535fd79f2846828cf9ed501143dfe1a12b0f0ddf9dacb508251d46e58cb43339a562fbfb1daadb23ccb64",
       "salt": "0a377477e6f8fa4eabc1affe403fce97",
       "createdAt": "2026-09-22T19:47:58.248Z"
+    },
+    {
+      "id": "user-1791285063367-zawqvr",
+      "name": "Vinissios Baum",
+      "email": "vinissiosbaum12@gmail.com",
+      "passwordHash": "4e009574cc12741128c62a262e7657077411d01b7c332b370b4226d47f52f92dbfbc376611bf305b0bd62a86a0cb4565d29e29024fb203098684fcdb118b58af",
+      "salt": "1b81c45b0878c39277137092abfb2369",
+      "createdAt": "2026-10-06T11:11:03.367Z"
     }
   ],
   "strategies": [
+    {
+      "name": "Venda Coberta PETR4 Teste Perfil",
+      "ticker": "PETR4",
+      "legs": [
+        {
+          "type": "STOCK",
+          "side": "BUY",
+          "strike": 38.2,
+          "premium": 38.2,
+          "quantity": 100
+        },
+        {
+          "type": "CALL",
+          "side": "SELL",
+          "strike": 40,
+          "premium": 1.2,
+          "quantity": 100
+        }
+      ],
+      "id": "pos-1791285940409-zlu3",
+      "userId": "user-1791285063367-zawqvr",
+      "createdAt": "2026-10-06T11:25:40.409Z",
+      "lastUpdated": "2026-10-06T11:25:40.409Z"
+    },
+    {
+      "name": "Trava Teste",
+      "ticker": "PETR4",
+      "legs": [],
+      "id": "pos-1791285325595-coz6",
+      "userId": "user-1791285063367-zawqvr",
+      "createdAt": "2026-10-06T11:15:25.595Z",
+      "lastUpdated": "2026-10-06T11:15:25.595Z"
+    },
     {
       "id": "pos-user1-petr4",
       "userId": "user-trader-1",
@@ -193,6 +234,8 @@
     "b3_user-trader-1_4d0d6f74c0c4a41ef3be6d4cffa299efbbf77838e631368e": "user-trader-1",
     "b3_user-trader-2_fa98f3716664dae9b38cd3786d09cc53e53fd4cb575517c5": "user-trader-2",
     "b3_user-1790106473828-k23nj0_bdf52b311743840f8e76ba8659301fbc605bec49fe43126f": "user-1790106473828-k23nj0",
-    "b3_user-1790106478248-pcmdrt_65c39562bf7c0540b38c721272ae54af1104b0da9c7bf5fb": "user-1790106478248-pcmdrt"
+    "b3_user-1790106478248-pcmdrt_65c39562bf7c0540b38c721272ae54af1104b0da9c7bf5fb": "user-1790106478248-pcmdrt",
+    "b3_user-trader-1_afd3653b263f235ca7bd5cbfa6e17410794c8a39cf84888f": "user-trader-1",
+    "b3_user-1791285063367-zawqvr_5348be85538bf4ab8f1349a2dfbf56ae5162d962f4f2640e": "user-1791285063367-zawqvr"
   }
 }

@@ -93,15 +93,15 @@ export const StrategyCatalog: React.FC<StrategyCatalogProps> = ({
         </div>
 
         {/* Sentiment Filter */}
-        <div className="flex items-center gap-2 text-xs text-slate-400 pt-1 border-t border-slate-800/60">
-          <span className="font-semibold text-slate-300">Viés de Mercado:</span>
+        <div className="flex items-center gap-1.5 text-xs text-slate-400 pt-1 border-t border-slate-800/60 overflow-x-auto no-scrollbar py-0.5">
+          <span className="font-semibold text-slate-300 shrink-0">Viés:</span>
           {['ALL', 'BULLISH', 'BEARISH', 'NEUTRAL', 'VOLATILE'].map((sent) => (
             <button
               key={sent}
               onClick={() => setSelectedSentiment(sent)}
-              className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition cursor-pointer ${
+              className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition cursor-pointer whitespace-nowrap shrink-0 ${
                 selectedSentiment === sent
-                  ? 'bg-slate-700 text-white'
+                  ? 'bg-slate-700 text-white font-bold'
                   : 'text-slate-400 hover:text-white'
               }`}
             >

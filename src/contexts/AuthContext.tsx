@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User } from '../types';
+import { strategyService } from '../services/strategyService';
 
 interface AuthContextType {
   user: User | null;
@@ -9,6 +10,7 @@ interface AuthContextType {
   login: (email: string, pass: string) => Promise<boolean>;
   register: (name: string, email: string, pass: string) => Promise<boolean>;
   socialLogin: (provider: 'google' | 'apple', email?: string, name?: string) => Promise<boolean>;
+  forgotPassword: (email: string) => Promise<{ success: boolean; message: string }>;
   logout: () => Promise<void>;
   quickLogin: (account: 'trader1' | 'trader2') => Promise<boolean>;
   clearError: () => void;
@@ -17,9 +19,18 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const TOKEN_KEY = 'b3_auth_token';
+const USER_KEY = 'b3_auth_user';
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
+  // Synchronous hydration on mount for zero-latency session recovery
+  const [user, setUser] = useState<User | null>(() => {
+    try {
+      const stored = localStorage.getItem(USER_KEY);
+      return stored ? JSON.parse(stored) : null;
+    } catch {
+      return null;
+    }
+  });
   const [token, setToken] = useState<string | null>(() => localStorage.getItem(TOKEN_KEY));
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -28,11 +39,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     const initAuth = async () => {
       const storedToken = localStorage.getItem(TOKEN_KEY);
+      const storedUserRaw = localStorage.getItem(USER_KEY);
+
       if (!storedToken) {
-        // Auto-login to Trader 1 by default so the user is never blocked from using the platform
+        // First ever visit: default to trader1 so simulator features are never blocked
         await quickLogin('trader1');
         setIsLoading(false);
         return;
+      }
+
+      let localUser: User | null = null;
+      if (storedUserRaw) {
+        try {
+          localUser = JSON.parse(storedUserRaw);
+          if (localUser && localUser.id) {
+            setUser(localUser);
+          }
+        } catch {
+          // ignore
+        }
       }
 
       try {
@@ -47,17 +72,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (data.success && data.user) {
             setUser(data.user);
             setToken(storedToken);
-          } else {
-            // Invalid token, fallback to quick login
-            await quickLogin('trader1');
+            localStorage.setItem(USER_KEY, JSON.stringify(data.user));
+            // Automatically migrate any strategies saved before login
+            strategyService.migrateGuestStrategiesToUser(storedToken, data.user.id);
           }
         } else {
-          // Token expired or server restarted, login default
-          await quickLogin('trader1');
+          // If server reported token expired, but we have a user, preserve their session locally
+          // NEVER force-switch a registered user (like Vinissios) to trader1!
+          if (!localUser) {
+            await quickLogin('trader1');
+          }
         }
       } catch (err) {
-        console.warn('Falha ao validar token com o servidor:', err);
-        await quickLogin('trader1');
+        console.warn('Falha ao validar token com o servidor, mantendo perfil local ativo:', err);
       } finally {
         setIsLoading(false);
       }
@@ -81,6 +108,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(data.user);
         setToken(data.token);
         localStorage.setItem(TOKEN_KEY, data.token);
+        localStorage.setItem(USER_KEY, JSON.stringify(data.user));
+        await strategyService.migrateGuestStrategiesToUser(data.token, data.user.id);
         setIsLoading(false);
         return true;
       } else {
@@ -110,6 +139,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(data.user);
         setToken(data.token);
         localStorage.setItem(TOKEN_KEY, data.token);
+        localStorage.setItem(USER_KEY, JSON.stringify(data.user));
+        await strategyService.migrateGuestStrategiesToUser(data.token, data.user.id);
         setIsLoading(false);
         return true;
       } else {
@@ -143,6 +174,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(data.user);
         setToken(data.token);
         localStorage.setItem(TOKEN_KEY, data.token);
+        localStorage.setItem(USER_KEY, JSON.stringify(data.user));
+        await strategyService.migrateGuestStrategiesToUser(data.token, data.user.id);
         setIsLoading(false);
         return true;
       } else {
@@ -154,6 +187,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setError(err.message || 'Erro ao conectar ao servidor.');
       setIsLoading(false);
       return false;
+    }
+  };
+
+  const forgotPassword = async (email: string): Promise<{ success: boolean; message: string }> => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/auth/forgot-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+
+      const data = await res.json();
+      setIsLoading(false);
+      if (res.ok && data.success) {
+        return { success: true, message: data.message };
+      } else {
+        const msg = data.error || 'Falha ao solicitar redefinição de senha.';
+        setError(msg);
+        return { success: false, message: msg };
+      }
+    } catch (err: any) {
+      const msg = err.message || 'Erro de conexão com o servidor.';
+      setError(msg);
+      setIsLoading(false);
+      return { success: false, message: msg };
     }
   };
 
@@ -169,6 +229,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     }
     localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(USER_KEY);
     setUser(null);
     setToken(null);
   };
@@ -190,6 +251,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         login,
         register,
         socialLogin,
+        forgotPassword,
         logout,
         quickLogin,
         clearError,

@@ -120,11 +120,11 @@ export const PayoffChart: React.FC<PayoffChartProps> = ({
     return path;
   }, [curveData, zeroY, minPrice, maxPrice, minPnL, maxPnL]);
 
-  // Mouse interaction
-  const handleMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
+  // Interaction helper for mouse and touch
+  const updateHoverFromClientX = (clientX: number, target: SVGSVGElement) => {
     if (!containerRef.current || curveData.length === 0) return;
-    const rect = e.currentTarget.getBoundingClientRect();
-    const mouseX = e.clientX - rect.left;
+    const rect = target.getBoundingClientRect();
+    const mouseX = clientX - rect.left;
     const svgX = (mouseX / rect.width) * width;
 
     if (svgX < padding.left || svgX > width - padding.right) {
@@ -152,6 +152,16 @@ export const PayoffChart: React.FC<PayoffChartProps> = ({
       x: scaleX(closest.price),
       y: scaleY(closest.expiryPnL),
     });
+  };
+
+  const handleMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
+    updateHoverFromClientX(e.clientX, e.currentTarget);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent<SVGSVGElement>) => {
+    if (e.touches.length > 0) {
+      updateHoverFromClientX(e.touches[0].clientX, e.currentTarget);
+    }
   };
 
   const handleMouseLeave = () => {
@@ -183,39 +193,64 @@ export const PayoffChart: React.FC<PayoffChartProps> = ({
   return (
     <div id="payoff-chart-container" ref={containerRef} className="relative w-full rounded-2xl bg-slate-900/90 border border-slate-800/80 p-4 shadow-xl backdrop-blur-md">
       {/* Top Legend and Controls */}
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-3 px-2">
+      <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-3 mb-2 sm:mb-3 px-1 sm:px-2">
         <div className="flex items-center gap-2">
-          <span className="font-bold text-slate-100 text-sm tracking-wide">
+          <span className="font-bold text-slate-100 text-xs sm:text-sm tracking-wide">
             Curva de Payoff Interativa
           </span>
-          <span className="px-2 py-0.5 text-xs font-semibold rounded bg-slate-800 text-slate-300 border border-slate-700/60">
+          <span className="px-2 py-0.5 text-[11px] sm:text-xs font-semibold rounded bg-slate-800 text-slate-300 border border-slate-700/60 font-mono">
             {ticker} @ R$ {spotPrice.toFixed(2)}
           </span>
         </div>
 
-        <div className="flex items-center gap-4 text-xs font-medium">
+        <div className="flex flex-wrap items-center gap-2.5 sm:gap-4 text-[10px] sm:text-xs font-medium">
           <div className="flex items-center gap-1.5 text-emerald-400">
-            <span className="inline-block w-3.5 h-1 bg-emerald-400 rounded-full" />
-            <span>No Vencimento (D+N)</span>
+            <span className="inline-block w-3 sm:w-3.5 h-1 bg-emerald-400 rounded-full" />
+            <span>Vencimento (D+N)</span>
           </div>
           <div className="flex items-center gap-1.5 text-amber-400">
-            <span className="inline-block w-3.5 h-1 border-b-2 border-dashed border-amber-400" />
-            <span>Hoje (D-0 Teórico)</span>
+            <span className="inline-block w-3 sm:w-3.5 h-1 border-b-2 border-dashed border-amber-400" />
+            <span>Hoje (D-0)</span>
           </div>
           <div className="flex items-center gap-1.5 text-blue-400">
-            <span className="inline-block w-2.5 h-2.5 rounded-full bg-blue-500/20 border border-blue-400" />
+            <span className="inline-block w-2 sm:w-2.5 h-2 sm:h-2.5 rounded-full bg-blue-500/20 border border-blue-400" />
             <span>Break-Even</span>
           </div>
         </div>
       </div>
 
+      {/* Mobile Live Touch Inspection Strip (visible when touching / hovering) */}
+      {hoverData && (
+        <div className="sm:hidden mb-2 px-2.5 py-1.5 rounded-xl bg-slate-950 border border-slate-700/80 flex items-center justify-between text-[11px] font-mono animate-fadeIn">
+          <div>
+            <span className="text-slate-400">Preço: </span>
+            <strong className="text-sky-400 font-bold">R$ {hoverData.price.toFixed(2)}</strong>
+          </div>
+          <div>
+            <span className="text-slate-400">Venc: </span>
+            <strong className={hoverData.expiryPnL >= 0 ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold'}>
+              {hoverData.expiryPnL >= 0 ? '+' : ''}R$ {hoverData.expiryPnL.toFixed(0)}
+            </strong>
+          </div>
+          <div>
+            <span className="text-slate-400">Hoje: </span>
+            <strong className={hoverData.currentPnL >= 0 ? 'text-amber-400 font-bold' : 'text-orange-400 font-bold'}>
+              {hoverData.currentPnL >= 0 ? '+' : ''}R$ {hoverData.currentPnL.toFixed(0)}
+            </strong>
+          </div>
+        </div>
+      )}
+
       {/* SVG Canvas */}
       <div className="w-full overflow-hidden select-none">
         <svg
           viewBox={`0 0 ${width} ${height}`}
-          className="w-full h-auto overflow-visible"
+          className="w-full h-auto overflow-visible touch-pan-y"
           onMouseMove={handleMouseMove}
           onMouseLeave={handleMouseLeave}
+          onTouchStart={handleTouchMove}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleMouseLeave}
         >
           <defs>
             <linearGradient id="profitGrad" x1="0" y1="0" x2="0" y2="1">

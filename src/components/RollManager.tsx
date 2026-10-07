@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useAuth } from '../contexts/AuthContext';
 import { OptionLeg, PositionRecord, StrategyPerformancePoint } from '../types';
 import { B3_EXPIRATION_LETTERS, IBOVESPA_ASSETS } from '../data/ibovAssets';
 import { fetchQuotes } from '../utils/oplabApi';
@@ -123,6 +124,7 @@ export const RollManager: React.FC<RollManagerProps> = ({
   interestRate = 0.1325,
   iv = 0.28,
 }) => {
+  const { user } = useAuth();
   const [activeSubTab, setActiveSubTab] = useState<'portfolio' | 'rollCalculator'>('portfolio');
 
   // Expanded card sections state
@@ -521,6 +523,7 @@ export const RollManager: React.FC<RollManagerProps> = ({
 
     const newPos: PositionRecord = {
       id: `pos-${Date.now()}`,
+      userId: user?.id || 'guest',
       name: `${rollStrategyTitle} [Rolada]`,
       ticker: rollTicker,
       createdAt: new Date().toISOString(),
@@ -574,26 +577,32 @@ export const RollManager: React.FC<RollManagerProps> = ({
         <div className="flex items-center gap-1.5 p-1 bg-slate-950 rounded-xl border border-slate-800/80 w-full lg:w-auto">
           <button
             onClick={() => setActiveSubTab('portfolio')}
-            className={`flex-1 lg:flex-initial flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition cursor-pointer ${
+            className={`flex-1 lg:flex-initial flex items-center justify-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-2 rounded-lg text-xs font-bold transition cursor-pointer ${
               activeSubTab === 'portfolio'
                 ? 'bg-emerald-600 text-white shadow-md'
                 : 'text-slate-400 hover:text-white'
             }`}
           >
-            <Calendar className="w-3.5 h-3.5" />
-            <span>Acompanhamento & Sugestões Proativas ({positions.length})</span>
+            <Calendar className="w-3.5 h-3.5 shrink-0" />
+            <span>
+              <span className="hidden sm:inline">Acompanhamento & Sugestões</span>
+              <span className="sm:hidden">Posições</span> ({positions.length})
+            </span>
           </button>
 
           <button
             onClick={() => setActiveSubTab('rollCalculator')}
-            className={`flex-1 lg:flex-initial flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition cursor-pointer ${
+            className={`flex-1 lg:flex-initial flex items-center justify-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-2 rounded-lg text-xs font-bold transition cursor-pointer ${
               activeSubTab === 'rollCalculator'
                 ? 'bg-teal-600 text-white shadow-md'
                 : 'text-slate-400 hover:text-white'
             }`}
           >
-            <RefreshCw className="w-3.5 h-3.5" />
-            <span>Calculadora Tática de Rolagem B3</span>
+            <RefreshCw className="w-3.5 h-3.5 shrink-0" />
+            <span>
+              <span className="hidden sm:inline">Calculadora Tática de Rolagem B3</span>
+              <span className="sm:hidden">Rolagem</span>
+            </span>
           </button>
         </div>
 
@@ -648,6 +657,35 @@ export const RollManager: React.FC<RollManagerProps> = ({
       {/* VIEW 1: Acompanhamento de Estratégias (Portfolio & Performance Tracker) */}
       {activeSubTab === 'portfolio' && (
         <div className="space-y-6">
+          {/* User Profile Sync Status Banner */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3.5 rounded-2xl bg-slate-900/90 border border-slate-800 shadow">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-xl bg-emerald-600/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 font-bold text-xs">
+                {user ? user.name.charAt(0).toUpperCase() : 'G'}
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-white">
+                    {user ? `Carteira de ${user.name}` : 'Carteira Local (Visitante)'}
+                  </span>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                    {user ? 'Salvo no Perfil (Nuvem + Local)' : 'Salvo Localmente'}
+                  </span>
+                </div>
+                <span className="text-[11px] text-slate-400">
+                  {user
+                    ? `Conta: ${user.email} • Suas estratégias ficam salvas permanentemente no seu perfil.`
+                    : 'Suas operações estão salvas no navegador. Conecte-se para sincronizar na nuvem.'}
+                </span>
+              </div>
+            </div>
+
+            <div className="text-[11px] text-slate-400 font-mono">
+              {positions.length} {positions.length === 1 ? 'estratégia registrada' : 'estratégias registradas'}
+            </div>
+          </div>
+
           {/* Portfolio Metric Stats */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
             <div className="p-4 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-1">
